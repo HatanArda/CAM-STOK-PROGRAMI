@@ -1,0 +1,90 @@
+{
+  "name": "camstok",
+  "productName": "CamStok",
+  "version": "1.0.0",
+  "description": "Gözlükçü cam stok takibi ve otomatik sipariş listesi",
+  "main": "src/main.js",
+  "author": "CamStok",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.js",
+    "dist-mac": "electron-builder --mac",
+    "dist-win": "electron-builder --win",
+    "dist-linux": "electron-builder --linux dir",
+    "dist-win-linuxta": "electron-builder --win dir -c.win.signAndEditExecutable=false"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0"
+  },
+  "devDependencies": {
+    "electron": "38.8.6",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "com.camstok.app",
+    "productName": "CamStok",
+    "copyright": "CamStok",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "private",
+        "to": ".",
+        "filter": [
+          "baslangic-stok.json"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "dmg": {
+      "title": "CamStok"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CamStok",
+      "artifactName": "CamStok-Kurulum-${version}.exe",
+      "language": "1055"
+    },
+    "linux": {
+      "target": "dir",
+      "icon": "build/icon.png"
+    },
+    "afterPack": "build/adhoc-imza.js"
+  }
+}

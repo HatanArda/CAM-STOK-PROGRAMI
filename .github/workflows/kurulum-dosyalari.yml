@@ -1,0 +1,43 @@
+# Mac (.dmg) ve Windows (.exe) kurulum dosyalarını GitHub'ın kendi Mac/Windows
+# sunucularında üretir. Sonuçlar: GitHub > Actions > son çalıştırma > "Artifacts".
+# NOT: Başlangıç stoğu (private/) repoda olmadığı için bu kurulumlar BOŞ stokla başlar.
+# İlk açılıştan sonra Ayarlar > "Yedekten geri yükle" ile baslangic-stok.json dosyasını seçin.
+name: Kurulum dosyalari
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            komut: dist-mac
+            ad: CamStok-Mac
+            desen: dist/*.dmg
+          - os: windows-latest
+            komut: dist-win
+            ad: CamStok-Windows
+            desen: dist/*.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run ${{ matrix.komut }} -- --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.ad }}
+          path: ${{ matrix.desen }}
+          retention-days: 30

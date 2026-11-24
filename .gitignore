@@ -1,0 +1,7 @@
+node_modules/
+dist/
+# Özel veriler: başlangıç stoğu ve orijinal HTML asla repoya gitmez
+private/*
+!private/OKUBENI.md
+.DS_Store
+*.log
