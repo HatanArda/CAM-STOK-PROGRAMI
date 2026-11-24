@@ -48,25 +48,26 @@ function P(){if(!state.hist)state.hist=[];var p=state.prods[state.cur];if(!p.tra
 function key(s,c){return fmt(s)+"|"+fmt(c)}
 function orders(p){var out=[];Object.keys(p.stock).forEach(function(k){var n=p.stock[k];
   var a=k.split("|"),s=parseFloat(a[0]),c=parseFloat(a[1]),e=n+((p.transit||{})[k]||0);
-  if(typeof n!=="number"||e>=p.thr||(p.excl&&p.excl[k]))return;
-  if(p.maxs>0&&Math.abs(s)>p.maxs+1e-9)return;
-  out.push({s:s,c:c,k:k,q:Math.max(0,p.tgt-e)})});
+  var R=(p.rules||{})[k],th=R?R.thr:p.thr,tg=R?R.tgt:p.tgt;
+  if(typeof n!=="number"||e>=th||(p.excl&&p.excl[k]))return;
+  if(!R&&p.maxs>0&&Math.abs(s)>p.maxs+1e-9)return;
+  out.push({s:s,c:c,k:k,q:Math.max(0,tg-e)})});
   out.sort(function(a,b){return a.s-b.s||b.c-a.c});return out}
 function chips(){var h="";state.prods.forEach(function(p,i){h+='<button class="chip'+(i===state.cur?' on':'')+'" data-p="'+i+'">'+thumb(p.name)+esc(p.name)+'</button>'});$("chips").innerHTML=h}
 function render(){var nv=document.querySelector("nav");if(setup){$("chips").innerHTML="";nv.hidden=true;$("main").innerHTML=viewSetup();status("Kurulum");return}if(locked()){$("chips").innerHTML="";nv.hidden=true;$("main").innerHTML=viewLicense(true);return}nv.hidden=false;chips();var m=$("main"),w0=document.querySelector(".wrap"),sc=w0&&tab==="stok"?[w0.scrollTop,w0.scrollLeft]:null;
   if(tab==="stok")m.innerHTML=reminder()+imgStrip()+viewStok();else if(tab==="siparis")m.innerHTML=reminder()+imgStrip()+viewOrder();else if(tab==="gecmis")m.innerHTML=viewHist();else m.innerHTML=viewSet();var w1=document.querySelector(".wrap");if(sc&&w1){w1.scrollTop=sc[0];w1.scrollLeft=sc[1]}
   document.querySelectorAll("nav button").forEach(function(b){b.className=b.dataset.t===tab?"on":""})}
-function viewStok(){var p=P(),h='<div class="bar"><div class="seg"><button data-sg="1" class="'+(sign===1?'on':'')+'">SPH +</button><button data-sg="-1" class="'+(sign===-1?'on':'')+'">SPH −</button></div><button class="btn sm'+(sale?'':' alt')+'" id="sale">Satış modu: '+(sale?'açık':'kapalı')+'</button>'+(sale?'<button class="btn sm alt" id="undo">Geri al</button>':'')+'</div>'+(sale?'<div class="mode">Satış modu açık: dokunduğunuz hücrenin stoğu 1 azalır.</div>':'')+'<div class="find"><input type="number" id="fs" step="0.25" placeholder="SPH"><input type="number" id="fc" step="0.25" placeholder="CYL"><span id="res" class="hint">Reçeteyi yazın, stoğa bakın.</span></div><div class="wrap"><table><thead><tr><th>SPH \\ CYL</th>';
+function viewStok(){var p=P(),h='<div class="bar"><div class="seg"><button data-sg="1" class="'+(sign===1?'on':'')+'">SPH +</button><button data-sg="-1" class="'+(sign===-1?'on':'')+'">SPH −</button></div><button class="btn sm'+(selMode?'':' alt')+'" id="selm">'+(selMode?'Bölge seçimi: açık':'Bölge seç')+'</button><button class="btn sm'+(sale?'':' alt')+'" id="sale">Satış modu: '+(sale?'açık':'kapalı')+'</button>'+(sale?'<button class="btn sm alt" id="undo">Geri al</button>':'')+'</div>'+(sale?'<div class="mode">Satış modu açık: dokunduğunuz hücrenin stoğu 1 azalır.</div>':'')+(selMode?'<div class="mode">Bölge seçimi açık: özel kural koymak istediğiniz camların üzerinde parmağınızı sürükleyin. Tabloyu kaydırmak için SPH ya da CYL başlıklarından tutun.</div>':'')+'<div class="find"><input type="number" id="fs" step="0.25" placeholder="SPH"><input type="number" id="fc" step="0.25" placeholder="CYL"><span id="res" class="hint">Reçeteyi yazın, stoğa bakın.</span></div><div class="wrap'+(selMode?' selmode':'')+'"><table><thead><tr><th>SPH \\ CYL</th>';
   for(var j=0;j<=20;j++)h+="<th>"+fmt(-j*.25)+"</th>";h+="</tr></thead><tbody>";
   var rows=sign===1?24:20;Object.keys(p.stock).forEach(function(k){var i=Math.round(parseFloat(k)*4)*sign;if(i>rows)rows=i});
   for(var i=0;i<=rows;i++){var s=sign*i*.25;h+="<tr><th>"+fmt(s)+"</th>";
     for(var j2=0;j2<=20;j2++){var c=-j2*.25,k=key(s,c),n=p.stock[k],cl="",t="";
-      if(typeof n==="number"){t=n;cl=n<p.thr?"low":"ok"}if(p.excl&&p.excl[k])cl+=" ex";
+      if(typeof n==="number"){t=n;cl=n<thrOf(p,k)?"low":"ok"}if(p.excl&&p.excl[k])cl+=" ex";if(ruleOf(p,k))cl+=" ozel";
       var yy=(p.transit||{})[k]||0;h+='<td class="'+cl+(yy?' tr':'')+'" data-k="'+k+'">'+t+(yy?'<i class="yl" title="yolda">+'+yy+'</i>':'')+"</td>"}
     h+="</tr>"}
   return h+"</tbody></table></div>"}
 function viewOrder(){var p=P(),o=orders(p),tot=0;o.forEach(function(x){tot+=x.q});
-  var h='<div class="card"><div class="sum"><div><b>'+o.length+'</b><span>çeşit</span></div><div><b>'+tot+'</b><span>adet</span></div></div><div class="hint">Stoğu '+p.thr+' altındaki camlar '+p.tgt+' adete tamamlanır'+(p.maxs>0?', SPH ±'+p.maxs.toFixed(2)+' ile sınırlı':'')+'.</div></div>';
+  var h='<div class="card"><div class="sum"><div><b>'+o.length+'</b><span>çeşit</span></div><div><b>'+tot+'</b><span>adet</span></div></div><div class="hint">Stoğu '+p.thr+' altındaki camlar '+p.tgt+' adete tamamlanır'+(p.maxs>0?', SPH ±'+p.maxs.toFixed(2)+' ile sınırlı':'')+'.'+(Object.keys(p.rules||{}).length?' '+Object.keys(p.rules).length+' camda özel kural geçerli.':'')+'</div></div>';
   h+=transitCard(p)+costCard(p,tot);if(!o.length)return h+'<div class="empty">Sipariş edilecek cam yok. Stoklar yeterli.</div>';
   h+='<div class="card" style="padding:0;overflow:hidden"><table class="list" style="width:100%"><thead><tr><th>SPH</th><th>CYL</th><th>ADET</th></tr></thead><tbody>';
   o.forEach(function(x){h+="<tr><td>"+fmt(x.s)+"</td><td>"+(x.c===0?"":fmt(x.c))+'</td><td class="q">'+x.q+"</td></tr>"});
@@ -96,7 +97,7 @@ function viewSet(){var p=P();
   '<label>Stok bunun altındaysa sipariş ver<input type="number" id="thr" min="0" value="'+p.thr+'"></label>'+
   '<label>Kaç adete tamamlansın<input type="number" id="tgt" min="1" value="'+p.tgt+'"></label>'+
   '<label>Sipariş için en yüksek SPH (±), 0 = sınır yok<input type="number" id="maxs" min="0" step="0.25" value="'+p.maxs+'"></label>'+
-  '<div class="row"><button class="btn alt" id="demo">Örnek veri yükle</button><button class="btn alt" id="clear">Stoğu temizle</button></div></div>'+
+  '<div class="hint" style="padding:8px 0">Özel kurallı camlar: <b>'+Object.keys(p.rules||{}).length+'</b> (Stok sekmesinde “Bölge seç” ile eklenir, tabloda yeşil çerçeveyle görünür).</div>'+(Object.keys(p.rules||{}).length?'<div class="row" style="margin-top:0"><button class="btn alt" id="rdelall">Özel kuralların hepsini kaldır</button></div>':'')+'<div class="row"><button class="btn alt" id="demo">Örnek veri yükle</button><button class="btn alt" id="clear">Stoğu temizle</button></div></div>'+
   '<div class="card"><b>Yeni cam çeşidi</b><label>Ad<input type="text" id="np" placeholder="örn. 1.60 Mavi Işık"></label><div class="row"><button class="btn" id="addp">Ekle</button>'+(state.prods.length>1?'<button class="btn alt" id="delp">Bu çeşidi sil</button>':'')+'</div></div>'+imgCard()+dataCard()+backupCard()+licCard()+aboutCard()}
 var toastT=null;
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toastT);toastT=setTimeout(function(){e.style.display="none"},t.length>40?3200:1600)}
@@ -233,6 +234,42 @@ document.addEventListener("click",function(e){var t=e.target.closest("button");i
 });
 document.addEventListener("change",function(e){if(e.target.id!=="fimg")return;var f=e.target.files&&e.target.files[0];if(!f)return;var name=P().name;
   shrink(f,function(u){var g=gAll();g[name]=u;if(gPut(g)){render();toast("Görsel eklendi")}})});
+
+/* ---------- Bölge seçip özel kural (sürükle-bırak) ---------- */
+(function(){if(document.getElementById("cs-bolge-css"))return;var st=document.createElement("style");st.id="cs-bolge-css";st.textContent="td.ozel{box-shadow:inset 0 0 0 2px var(--acc)}td.sel{outline:3px solid #f5b400!important;outline-offset:-3px}.selmode td{touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none}";document.head.appendChild(st)})();
+var selMode=false, selA=null, selB=null, dragging=false;
+function ruleOf(p,k){return (p.rules||{})[k]||null}
+function thrOf(p,k){var r=ruleOf(p,k);return r?r.thr:p.thr}
+function selKeys(){if(!selA||!selB)return [];var s1=Math.min(selA.s,selB.s),s2=Math.max(selA.s,selB.s),c1=Math.min(selA.c,selB.c),c2=Math.max(selA.c,selB.c),out=[];
+  for(var s=Math.round(s1*4);s<=Math.round(s2*4);s++)for(var c=Math.round(c1*4);c<=Math.round(c2*4);c++)out.push(key(s/4,c/4));return out}
+function paintSel(){var ks={};selKeys().forEach(function(k){ks[k]=1});document.querySelectorAll("td[data-k]").forEach(function(td){td.classList.toggle("sel",!!ks[td.dataset.k])})}
+function cellAt(x,y){var el=document.elementFromPoint(x,y);el=el&&el.closest?el.closest("td[data-k]"):null;if(!el)return null;var a=el.dataset.k.split("|");return {s:parseFloat(a[0]),c:parseFloat(a[1])}}
+function openRule(){var p=P(),ks=selKeys();if(!ks.length)return;var stocked=ks.filter(function(k){return typeof p.stock[k]==="number"}).length,withRule=ks.filter(function(k){return ruleOf(p,k)}).length;
+  var r0=ruleOf(p,ks[0])||{thr:p.thr,tgt:p.tgt},sA=Math.min(selA.s,selB.s),sB=Math.max(selA.s,selB.s),cA=Math.max(selA.c,selB.c),cB=Math.min(selA.c,selB.c);
+  $("panel").innerHTML='<h2>Seçilen bölge</h2><div class="hint">SPH '+fmt(sA)+(sA!==sB?' … '+fmt(sB):'')+' · CYL '+fmt(cA)+(cA!==cB?' … '+fmt(cB):'')+'<br>'+ks.length+' hücre, '+stocked+' tanesinde stok kaydı var'+(withRule?', '+withRule+' tanesinde zaten özel kural var':'')+'.</div>'+
+  '<label>Stok bunun altındaysa sipariş ver<input type="number" id="rthr" min="0" value="'+r0.thr+'"></label><label>Kaç adete tamamlansın<input type="number" id="rtgt" min="1" value="'+r0.tgt+'"></label>'+
+  '<div class="hint" style="margin-top:6px">Bu kural yalnızca seçtiğiniz camlar için geçerlidir; diğerleri '+esc(p.name)+' genel kuralını ('+p.thr+' / '+p.tgt+') kullanır. Seçilen camlarda “en yüksek SPH” sınırı uygulanmaz. Boş hücreler, stok girilene kadar siparişe girmez.</div>'+
+  '<div class="row"><button class="btn" id="rset">Kuralı uygula</button>'+(withRule?'<button class="btn alt" id="rclr">Bu bölgenin özel kuralını kaldır</button>':'')+'<button class="btn alt" id="rcx">Vazgeç</button></div>';
+  $("sheet").className="sheet show"}
+function endSel(){selA=selB=null;paintSel()}
+document.addEventListener("pointerdown",function(e){if(!selMode||tab!=="stok")return;var td=e.target.closest&&e.target.closest("td[data-k]");if(!td)return;e.preventDefault();var c=cellAt(e.clientX,e.clientY);if(!c)return;selA=selB=c;dragging=true;paintSel()});
+document.addEventListener("pointermove",function(e){if(!dragging)return;var c=cellAt(e.clientX,e.clientY);if(c&&(c.s!==selB.s||c.c!==selB.c)){selB=c;paintSel()}});
+document.addEventListener("pointerup",function(){if(!dragging)return;dragging=false;openRule()});
+document.addEventListener("pointercancel",function(){dragging=false;endSel()});
+document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("button,td");if(!t)return;
+  if(selMode&&t.tagName==="TD"&&tab==="stok"){e.stopPropagation();return}
+  var id=t.id,p;
+  if(id==="selm"){selMode=!selMode;if(selMode)sale=false;endSel();render();e.stopPropagation();return}
+  if(id==="rset"){p=P();var th=Math.max(0,parseInt($("rthr").value,10)||0),tg=Math.max(1,parseInt($("rtgt").value,10)||1),ks=selKeys();if(!p.rules)p.rules={};
+    ks.forEach(function(k){if(th===p.thr&&tg===p.tgt)delete p.rules[k];else p.rules[k]={thr:th,tgt:tg}});save();$("sheet").className="sheet";endSel();render();toast(ks.length+" cam için kural kaydedildi: stok "+th+" adedin altına düşerse "+tg+" adede tamamlanacak");e.stopPropagation();return}
+  if(id==="rclr"){p=P();selKeys().forEach(function(k){if(p.rules)delete p.rules[k]});save();$("sheet").className="sheet";endSel();render();toast("Özel kural kaldırıldı");e.stopPropagation();return}
+  if(id==="rcx"){$("sheet").className="sheet";endSel();e.stopPropagation();return}
+  if(id==="rdel1"){p=P();if(p.rules)delete p.rules[cur];save();$("sheet").className="sheet";render();toast("Özel kural kaldırıldı");e.stopPropagation();return}
+  if(id==="rdelall"){if(t.dataset.arm!=="1"){t.dataset.arm="1";t.textContent="Emin misiniz? Tekrar dokunun";e.stopPropagation();return}P().rules={};save();render();toast("Özel kurallar kaldırıldı");e.stopPropagation();return}
+},true);
+var openCellRule=openCell;
+openCell=function(k){openCellRule(k);var r=ruleOf(P(),k);if(!r)return;var d=document.createElement("div");d.className="notice";
+  d.innerHTML='<b>Özel kural</b>Bu camda stok '+r.thr+' adedin altına düşerse '+r.tgt+' adede tamamlanır.<div class="row"><button class="btn alt sm" id="rdel1">Özel kuralı kaldır</button></div>';$("panel").insertBefore(d,$("panel").querySelector(".step"))};
 /* ---------- Yoldaki camlar: hücre bazında geldi / kısmen geldi ---------- */
 function syncHist(p){var left=Object.keys(p.transit||{}).some(function(k){return p.transit[k]>0});state.hist.forEach(function(h){if(h.prod===p.name&&(h.st==="yolda"||h.st==="kısmen geldi"))h.st=left?"kısmen geldi":"geldi"})}
 function arriveCell(p,k,q){var y=(p.transit||{})[k]||0;q=Math.max(0,Math.min(q,y));if(!q)return 0;p.stock[k]=(p.stock[k]||0)+q;if(y-q>0)p.transit[k]=y-q;else delete p.transit[k];return q}
@@ -254,7 +291,7 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(t.closest&&t.closest("nav")&&d.t){tab=d.t;render();return}
   if(d.p!==undefined){state.cur=+d.p;save();render();return}
   if(d.sg){sign=+d.sg;render();return}
-  if(t.tagName==="TD"&&d.k&&tab==="stok"){if(sale){var p3=P(),n3=p3.stock[d.k];if(typeof n3==="number"&&n3>0){p3.stock[d.k]=n3-1;last=d.k;t.innerHTML=(n3-1)+((p3.transit||{})[d.k]?'<i class="yl" title="yolda">+'+p3.transit[d.k]+'</i>':'');t.className=(n3-1<p3.thr?"low":"ok")+(p3.excl&&p3.excl[d.k]?" ex":"")+((p3.transit||{})[d.k]?" tr":"");save();toast(d.k.replace("|"," / ")+": "+(n3-1)+" kaldı")}else toast("Bu camda stok yok")}else openCell(d.k);return}
+  if(t.tagName==="TD"&&d.k&&tab==="stok"){if(sale){var p3=P(),n3=p3.stock[d.k];if(typeof n3==="number"&&n3>0){p3.stock[d.k]=n3-1;last=d.k;t.innerHTML=(n3-1)+((p3.transit||{})[d.k]?'<i class="yl" title="yolda">+'+p3.transit[d.k]+'</i>':'');t.className=(n3-1<thrOf(p3,d.k)?"low":"ok")+(ruleOf(p3,d.k)?" ozel":"")+(p3.excl&&p3.excl[d.k]?" ex":"")+((p3.transit||{})[d.k]?" tr":"");save();toast(d.k.replace("|"," / ")+": "+(n3-1)+" kaldı")}else toast("Bu camda stok yok")}else openCell(d.k);return}
   var id=t.id;
   if(id==="askok"){var f=pending;sheetClose();if(f)f();return}
   if(id==="exc"){var pe=P();if(!pe.excl)pe.excl={};if(pe.excl[cur])delete pe.excl[cur];else pe.excl[cur]=1;save();$("sheet").className="sheet";render();return}
@@ -267,8 +304,8 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(d.ph){var hp=state.hist.filter(function(x){return String(x.id)===d.ph})[0];if(hp){pdfFor(hp.prod,hp.items,hp.tot?"Fatura tutarı: "+tl(hp.tot):"")}return}
   if(d.dh){if(t.dataset.arm!=="1"){t.dataset.arm="1";t.textContent="Silinsin mi?";return}state.hist=state.hist.filter(function(x){return String(x.id)!==d.dh});save();render();return}
   if(d.ch){var hh=state.hist.filter(function(x){return String(x.id)===d.ch})[0];if(hh){var NL3="\n",tx3="SİPARİŞ EDİLECEK CAMLAR"+NL3+hh.prod+NL3+NL3+"SPH / CYL / ADET"+NL3;hh.items.forEach(function(x){tx3+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+NL3});cp(tx3,"Liste kopyalandı")}return}
-  if(id==="sale"){sale=!sale;last=null;render();return}
-  if(id==="undo"){if(last){var p4=P();p4.stock[last]=(p4.stock[last]||0)+1;var td=document.querySelector('td[data-k="'+last+'"]');if(td){td.innerHTML=p4.stock[last]+((p4.transit||{})[last]?'<i class="yl" title="yolda">+'+p4.transit[last]+'</i>':'');td.className=(p4.stock[last]<p4.thr?"low":"ok")+(p4.excl&&p4.excl[last]?" ex":"")+((p4.transit||{})[last]?" tr":"")}last=null;save();toast("Geri alındı")}else toast("Geri alınacak satış yok");return}
+  if(id==="sale"){sale=!sale;if(sale)selMode=false;last=null;render();return}
+  if(id==="undo"){if(last){var p4=P();p4.stock[last]=(p4.stock[last]||0)+1;var td=document.querySelector('td[data-k="'+last+'"]');if(td){td.innerHTML=p4.stock[last]+((p4.transit||{})[last]?'<i class="yl" title="yolda">+'+p4.transit[last]+'</i>':'');td.className=(p4.stock[last]<thrOf(p4,last)?"low":"ok")+(ruleOf(p4,last)?" ozel":"")+(p4.excl&&p4.excl[last]?" ex":"")+((p4.transit||{})[last]?" tr":"")}last=null;save();toast("Geri alındı")}else toast("Geri alınacak satış yok");return}
   if(id==="sent"){var q=P(),os=orders(q),tq=0,items=[];os.forEach(function(x){q.transit[x.k]=(q.transit[x.k]||0)+x.q;tq+=x.q;items.push({s:x.s,c:x.c,q:x.q})});if(os.length){var cc=calc(tq,q.cost||0,q.kdv||0);state.hist.unshift({id:Date.now(),d:Date.now(),prod:q.name,items:items,qty:tq,cost:q.cost||0,kdv:q.kdv||0,tot:q.cost?cc.tot:0,st:"yolda"})}save();toast("Sipariş kaydedildi, yolda");render();return}
   if(id==="arrived"){var q2=P();Object.keys(q2.transit).forEach(function(k){q2.stock[k]=(q2.stock[k]||0)+q2.transit[k]});q2.transit={};state.hist.forEach(function(h){if(h.prod===q2.name&&(h.st==="yolda"||h.st==="kısmen geldi")){h.st="geldi"}});save();toast("Stoğa eklendi");render();return}
   if(id==="cleartr"){var q5=P();q5.transit={};state.hist.forEach(function(h){if(h.prod===q5.name&&(h.st==="yolda"||h.st==="kısmen geldi")){h.st="iptal"}});save();render();return}
