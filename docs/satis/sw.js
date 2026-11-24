@@ -1,6 +1,6 @@
 // CamStok'un internetsiz açılması için dosyaları iPad'de saklar.
 // Sayfa güncellenince SURUM değiştirilir; yeni sürüm bir sonraki açılışta gelir.
-const SURUM = "camstok-satis-v2";
+const SURUM = "camstok-satis-v3";
 const DOSYALAR = ["./", "index.html", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png",
   "apple-touch-icon.png", "vendor/xlsx.full.min.js", "vendor/jspdf.umd.min.js", "vendor/LICENSE-xlsx.txt", "vendor/LICENSE-jspdf.txt"];
 
@@ -15,7 +15,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(e.request.url, { cache: "no-cache" }).then(r => {
       if (r.ok) { const k = r.clone(); caches.open(SURUM).then(c => c.put(e.request, k)); }
       return r;
     }).catch(() => caches.match(e.request, { ignoreSearch: true }).then(r => r || caches.match("index.html")))
