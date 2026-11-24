@@ -7,3 +7,5 @@ private/*
 *.log
 teslim/
 .node/
+# Devam dosyası kişisel bilgi içerir; yalnızca CamStok-devam.zip içinde saklanır
+DEVAM.md
