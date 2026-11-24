@@ -21,7 +21,7 @@ function load(){var s=null;try{s=normalize(JSON.parse(lsGet(KEY)))}catch(e){s=nu
   firstRun=!s;state=s||SEED();setup=!s;if(!lsGet(TKEY))lsSet(TKEY,String(Date.now()));
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
   dailyBackup()}
-function save(){if(setup)return;if(lsSet(KEY,JSON.stringify(state))){lastSaved=Date.now();status()}else{status("KAYDEDİLEMEDİ",true);toast("Kaydedilemedi: cihazda yer kalmamış olabilir. Hemen yedeği Dosyalar'a kaydedin.")}}
+function save(){if(setup)return;if(typeof noteChange==="function")noteChange();if(lsSet(KEY,JSON.stringify(state))){lastSaved=Date.now();status()}else{status("KAYDEDİLEMEDİ",true);toast("Kaydedilemedi: cihazda yer kalmamış olabilir. Hemen yedeği Dosyalar'a kaydedin.")}}
 function today(d){d=d||new Date();function p(n){return String(n).padStart(2,"0")}return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}
 function stamp(){var d=new Date();function p(n){return String(n).padStart(2,"0")}return today(d)+"_"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds())}
 function status(t,err){var s=$("st");if(!s)return;s.className=err?"err":"";
@@ -35,7 +35,7 @@ function backupDoc(id,st){bkPut(id,st);return Promise.resolve()}
 function daysSinceFile(){var t=+lsGet(LKEY);return t?Math.floor((Date.now()-t)/864e5):null}
 function reminder(){var d=daysSinceFile(),empty=!state.prods.some(function(p){return Object.keys(p.stock).length});
   if(empty)return '<div class="notice"><b>Stok henüz boş</b>Tablodaki hücrelere dokunarak adetleri girin. Elinizde Excel listesi varsa <b>Ayarlar → Excel’den yükle</b> ile aktarabilirsiniz.</div>';
-  if(d===null||d>=7)return '<div class="notice"><b>Yedek zamanı</b>'+(d===null?'Henüz Dosyalar’a hiç yedek almadınız.':'Son yedeğiniz '+d+' gün önce.')+' Veriler yalnızca bu cihazda duruyor.<div class="row"><button class="btn sm" id="bkfile">Yedeği Dosyalar’a kaydet</button></div></div>';
+  var n=dirtyN();if(n>0||d===null)return '<div class="notice"><b>Yedeklenmemiş değişiklik var</b>'+(d===null?'Henüz Dosyalar’a hiç yedek almadınız.':'Son dosya yedeğinden ('+(d===0?'bugün':d+' gün önce')+') sonra <b>'+n+' değişiklik</b> yapıldı.')+' Veriler şu an yalnızca bu cihazda.<div class="row"><button class="btn sm" id="bkfile">Yedeği Dosyalar’a kaydet</button></div></div>';
   return ""}
 
 function mk(name,demo){var p={name:name,thr:4,tgt:6,maxs:0,stock:{},transit:{},cost:0,kdv:0,excl:{}};if(demo)seed(p);return p}
@@ -270,6 +270,18 @@ document.addEventListener("click",function(e){var t=e.target.closest&&e.target.c
 var openCellRule=openCell;
 openCell=function(k){openCellRule(k);var r=ruleOf(P(),k);if(!r)return;var d=document.createElement("div");d.className="notice";
   d.innerHTML='<b>Özel kural</b>Bu camda stok '+r.thr+' adedin altına düşerse '+r.tgt+' adede tamamlanır.<div class="row"><button class="btn alt sm" id="rdel1">Özel kuralı kaldır</button></div>';$("panel").insertBefore(d,$("panel").querySelector(".step"))};
+
+/* ---------- Yedeklenmemiş değişiklik takibi ve yedek hatırlatma ---------- */
+var CKEY=KEY+"_yedeksiz_degisiklik", DKEY=KEY+"_yedek_sorulan_gun", lastSig=null, BUYUK=["sent","arrived","pago","cgeldi","askok","rset","rclr","impgo"];
+function sigOf(){try{var o=Object.assign({},state);delete o.cur;return JSON.stringify(o)}catch(e){return ""}}
+function dirtyN(){return +lsGet(CKEY)||0}
+function noteChange(){var g=sigOf();if(lastSig!==null&&g!==lastSig)lsSet(CKEY,String(dirtyN()+1));lastSig=g}
+function backedUp(){lsSet(CKEY,"0");lsSet(LKEY,String(Date.now()));lastSig=sigOf()}
+function askBackup(title,txt){if($("sheet").classList.contains("show"))return;$("panel").innerHTML='<h2>'+title+'</h2><div class="hint" style="margin:6px 0 4px">'+txt+'</div><div class="row"><button class="btn" id="bkfile">Yedeği Dosyalar’a kaydet</button><button class="btn alt" id="cx">Sonra</button></div>';$("sheet").className="sheet show"}
+document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("button");if(!t||BUYUK.indexOf(t.id)<0)return;var d0=dirtyN();
+  setTimeout(function(){if(dirtyN()>d0)askBackup("Değişikliği yedekleyin","Önemli bir değişiklik yaptınız. Yedeği şimdi Dosyalar’a (iCloud Drive) kaydedin; iPad’e bir şey olursa bu dosyayla her şeyi geri yüklersiniz.")},120)},true);
+function dailyAsk(){var n=dirtyN();if(!n||lsGet(DKEY)===today())return;lsSet(DKEY,today());
+  setTimeout(function(){if(typeof setup!=="undefined"&&setup)return;if(typeof locked==="function"&&locked())return;askBackup("Günlük yedek","Son dosya yedeğinden sonra <b>"+n+" değişiklik</b> yapıldı. Yedeği Dosyalar’a kaydedelim mi?")},700)}
 /* ---------- Yoldaki camlar: hücre bazında geldi / kısmen geldi ---------- */
 function syncHist(p){var left=Object.keys(p.transit||{}).some(function(k){return p.transit[k]>0});state.hist.forEach(function(h){if(h.prod===p.name&&(h.st==="yolda"||h.st==="kısmen geldi"))h.st=left?"kısmen geldi":"geldi"})}
 function arriveCell(p,k,q){var y=(p.transit||{})[k]||0;q=Math.max(0,Math.min(q,y));if(!q)return 0;p.stock[k]=(p.stock[k]||0)+q;if(y-q>0)p.transit[k]=y-q;else delete p.transit[k];return q}
@@ -316,7 +328,7 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(id==="addp"){var nm=$("np").value.trim();if(nm){if(state.prods.some(function(p){return p.name.toLowerCase()===nm.toLowerCase()})){toast("Bu adla bir çeşit zaten var");return}state.prods.push(mk(nm,false));state.cur=state.prods.length-1;save();render()}return}
   if(id==="delp"){ask("Çeşit silinsin mi?","“"+P().name+"” ve tüm stoğu silinecek.","Çeşidi sil",function(){state.prods.splice(state.cur,1);state.cur=0;save();render()});return}
   // ---- Veri ve yedek ----
-  if(id==="bkfile"){saveFile("CamStok-yedek-"+today()+".json",JSON.stringify(Object.assign({},state,{gorseller:gAll()}),null,1),"Yedek kaydedildi",function(){lsSet(LKEY,String(Date.now()));render()});return}
+  if(id==="bkfile"){saveFile("CamStok-yedek-"+today()+".json",JSON.stringify(Object.assign({},state,{gorseller:gAll()}),null,1),"Yedek kaydedildi",function(){backedUp();$("sheet").className="sheet";render()});return}
   if(id==="rsfile"){$("fjson").value="";$("fjson").click();return}
   if(id==="xout"){exportXlsx();return}
   if(id==="xin"){$("fxlsx").value="";$("fxlsx").click();return}
@@ -338,5 +350,5 @@ document.addEventListener("change",function(e){var id=e.target.id;if(id!=="fjson
   else return;save();toast("Kaydedildi")});
 document.addEventListener("input",function(e){var id=e.target.id;if(id==="cost"||id==="kdv"){var pp=P();pp[id]=Math.max(0,parseFloat(e.target.value)||0);save();var o2=orders(pp),t2=0;o2.forEach(function(x){t2+=x.q});$("inv").innerHTML=invHtml(calc(t2,pp.cost||0,pp.kdv||0),pp);return}if(id!=="fs"&&id!=="fc")return;var s=$("fs").value,r=$("res");if(s===""||isNaN(parseFloat(s))){r.textContent="Reçeteyi yazın, stoğa bakın.";return}var sv=Math.round(parseFloat(s)*4)/4,cv=-Math.abs(Math.round((parseFloat($("fc").value)||0)*4)/4),p=P(),k=key(sv,cv),n=p.stock[k],y=p.transit[k]||0;r.textContent=fmt(sv)+" / "+fmt(cv)+": "+(typeof n==="number"&&n>0?n+" adet stokta":"stokta yok")+(y?" (yolda "+y+")":"")});
 window.onerror=function(m,u,l){var e=document.getElementById("main");if(e)e.innerHTML='<div class="card"><b>Bir hata oluştu</b><div class="hint">'+esc(String(m))+' (satır '+l+')</div></div>'};
-try{load();checkLicense().then(function(){render();status()});render();status();if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(function(){})}catch(er){window.onerror(er&&er.message,"",0)}
+try{load();lastSig=sigOf();checkLicense().then(function(){render();status();dailyAsk()});render();status();if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(function(){})}catch(er){window.onerror(er&&er.message,"",0)}
 })();
