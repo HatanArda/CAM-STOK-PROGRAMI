@@ -48,9 +48,9 @@ function orders(p){var out=[];Object.keys(p.stock).forEach(function(k){var n=p.s
   if(p.maxs>0&&Math.abs(s)>p.maxs+1e-9)return;
   out.push({s:s,c:c,k:k,q:Math.max(0,p.tgt-e)})});
   out.sort(function(a,b){return a.s-b.s||b.c-a.c});return out}
-function chips(){var h="";state.prods.forEach(function(p,i){h+='<button class="chip'+(i===state.cur?' on':'')+'" data-p="'+i+'">'+esc(p.name)+'</button>'});$("chips").innerHTML=h}
+function chips(){var h="";state.prods.forEach(function(p,i){h+='<button class="chip'+(i===state.cur?' on':'')+'" data-p="'+i+'">'+thumb(p.name)+esc(p.name)+'</button>'});$("chips").innerHTML=h}
 function render(){chips();var m=$("main"),w0=document.querySelector(".wrap"),sc=w0&&tab==="stok"?[w0.scrollTop,w0.scrollLeft]:null;
-  if(tab==="stok")m.innerHTML=reminder()+viewStok();else if(tab==="siparis")m.innerHTML=reminder()+viewOrder();else if(tab==="gecmis")m.innerHTML=viewHist();else m.innerHTML=viewSet();var w1=document.querySelector(".wrap");if(sc&&w1){w1.scrollTop=sc[0];w1.scrollLeft=sc[1]}
+  if(tab==="stok")m.innerHTML=reminder()+imgStrip()+viewStok();else if(tab==="siparis")m.innerHTML=reminder()+imgStrip()+viewOrder();else if(tab==="gecmis")m.innerHTML=viewHist();else m.innerHTML=viewSet();var w1=document.querySelector(".wrap");if(sc&&w1){w1.scrollTop=sc[0];w1.scrollLeft=sc[1]}
   document.querySelectorAll("nav button").forEach(function(b){b.className=b.dataset.t===tab?"on":""})}
 function viewStok(){var p=P(),h='<div class="bar"><div class="seg"><button data-sg="1" class="'+(sign===1?'on':'')+'">SPH +</button><button data-sg="-1" class="'+(sign===-1?'on':'')+'">SPH −</button></div><button class="btn sm'+(sale?'':' alt')+'" id="sale">Satış modu: '+(sale?'açık':'kapalı')+'</button>'+(sale?'<button class="btn sm alt" id="undo">Geri al</button>':'')+'</div>'+(sale?'<div class="mode">Satış modu açık: dokunduğunuz hücrenin stoğu 1 azalır.</div>':'')+'<div class="find"><input type="number" id="fs" step="0.25" placeholder="SPH"><input type="number" id="fc" step="0.25" placeholder="CYL"><span id="res" class="hint">Reçeteyi yazın, stoğa bakın.</span></div><div class="wrap"><table><thead><tr><th>SPH \\ CYL</th>';
   for(var j=0;j<=20;j++)h+="<th>"+fmt(-j*.25)+"</th>";h+="</tr></thead><tbody>";
@@ -93,7 +93,7 @@ function viewSet(){var p=P();
   '<label>Kaç adete tamamlansın<input type="number" id="tgt" min="1" value="'+p.tgt+'"></label>'+
   '<label>Sipariş için en yüksek SPH (±), 0 = sınır yok<input type="number" id="maxs" min="0" step="0.25" value="'+p.maxs+'"></label>'+
   '<div class="row"><button class="btn alt" id="demo">Örnek veri yükle</button><button class="btn alt" id="clear">Stoğu temizle</button></div></div>'+
-  '<div class="card"><b>Yeni cam çeşidi</b><label>Ad<input type="text" id="np" placeholder="örn. 1.60 Mavi Işık"></label><div class="row"><button class="btn" id="addp">Ekle</button>'+(state.prods.length>1?'<button class="btn alt" id="delp">Bu çeşidi sil</button>':'')+'</div></div>'+dataCard()+backupCard()}
+  '<div class="card"><b>Yeni cam çeşidi</b><label>Ad<input type="text" id="np" placeholder="örn. 1.60 Mavi Işık"></label><div class="row"><button class="btn" id="addp">Ekle</button>'+(state.prods.length>1?'<button class="btn alt" id="delp">Bu çeşidi sil</button>':'')+'</div></div>'+imgCard()+dataCard()+backupCard()}
 var toastT=null;
 function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toastT);toastT=setTimeout(function(){e.style.display="none"},t.length>40?3200:1600)}
 function openCell(k){cur=k;var a=k.split("|"),n=P().stock[k];
@@ -107,7 +107,7 @@ var pending=null;
 function ask(title,detail,okLabel,fn){pending=fn;
   $("panel").innerHTML='<h2>'+esc(title)+'</h2><div class="hint" style="white-space:pre-line;margin:6px 0 4px">'+esc(detail)+'</div><div class="row"><button class="btn" id="askok">'+esc(okLabel)+'</button><button class="btn alt" id="cx">Vazgeç</button></div>';
   $("sheet").className="sheet show"}
-function replaceState(st,msg){var before=JSON.parse(JSON.stringify(state));state=st;sale=false;last=null;
+function replaceState(st,msg){if(st.gorseller){var gg=gAll();Object.keys(st.gorseller).forEach(function(k){if(typeof st.gorseller[k]==="string"&&/^data:image\//.test(st.gorseller[k]))gg[k]=st.gorseller[k]});gPut(gg);delete st.gorseller}var before=JSON.parse(JSON.stringify(state));state=st;sale=false;last=null;
   bkPut(stamp()+"_once",before);firstRun=false;save();render();toast(msg)}
 
 /* ---------- Dosyaya kaydetme: iPad'de paylaşım penceresi ("Dosyalar'a Kaydet") ---------- */
@@ -164,6 +164,24 @@ function pdfFor(name,items,extra){if(!window.jspdf){toast("PDF aracı yükleneme
 
 
 (function(){if(document.getElementById("cs-yolda-css"))return;var st=document.createElement("style");st.id="cs-yolda-css";st.textContent="td.tr{position:relative}td .yl{position:absolute;top:2px;right:3px;font-size:10px;font-style:normal;font-weight:700;color:var(--acc);line-height:1;pointer-events:none}.panel{max-height:88vh;overflow:auto}.pl{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}";document.head.appendChild(st)})();
+
+/* ---------- Ambalaj görselleri (her cam çeşidi için bir fotoğraf) ---------- */
+var GKEY=KEY+"_gorseller", HAZIR_GORSEL={};
+(function(){if(document.getElementById("cs-gorsel-css"))return;var st=document.createElement("style");st.id="cs-gorsel-css";st.textContent=".ci{width:24px;height:24px;border-radius:50%;object-fit:cover;vertical-align:middle;margin:-4px 8px -4px -8px;border:1px solid rgba(255,255,255,.35)}.imgstrip{display:inline-flex;max-width:100%;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px;margin-bottom:10px;cursor:pointer;text-align:left;font:inherit;color:var(--ink)}.imgstrip img{width:56px;height:56px;border-radius:8px;object-fit:cover;background:var(--bg);flex:none}.imgstrip b{display:block}.bigimg{display:block;width:100%;max-height:70vh;object-fit:contain;border-radius:10px;background:var(--bg);margin:8px 0}.imgcard{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.imgcard img{width:96px;height:96px;border-radius:10px;object-fit:cover;background:var(--bg);border:1px solid var(--line)}.imgcard .noimg{width:96px;height:96px;border-radius:10px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:12px;text-align:center;padding:6px}";document.head.appendChild(st)})();
+function gAll(){try{return JSON.parse(lsGet(GKEY))||{}}catch(e){return {}}}
+function gPut(all){if(!lsSet(GKEY,JSON.stringify(all))){toast("Görsel kaydedilemedi: cihazda yer kalmamış olabilir");return false}return true}
+function imgOf(name){var g=gAll();return g[name]||HAZIR_GORSEL[name]||null}
+function thumb(name){var u=imgOf(name);return u?'<img class="ci" src="'+esc(u)+'" alt="">':''}
+function imgStrip(){var p=P(),u=imgOf(p.name);if(!u)return "";return '<button class="imgstrip" id="imgbig"><img src="'+esc(u)+'" alt="'+esc(p.name)+' ambalajı"><span><b>'+esc(p.name)+'</b><span class="hint">Ambalaj görseli · büyütmek için dokunun</span></span></button>'}
+function imgCard(){var p=P(),u=imgOf(p.name);return '<div class="card"><b>'+esc(p.name)+' ambalaj görseli</b><div class="hint">Camın kutusunun ya da etiketinin fotoğrafını ekleyin. Stok ve Sipariş sayfalarında bu çeşidi tanımayı kolaylaştırır.</div><div class="imgcard" style="margin-top:8px">'+(u?'<img src="'+esc(u)+'" alt="">':'<div class="noimg">Görsel yok</div>')+'<div class="row" style="margin:0"><button class="btn alt" id="imgpick">'+(u?'Görseli değiştir':'Görsel ekle')+'</button>'+(gAll()[p.name]?'<button class="btn alt" id="imgdel">Kaldır</button>':'')+'</div></div><input type="file" id="fimg" accept="image/*" hidden></div>'}
+function shrink(file,cb){var r=new FileReader();r.onload=function(){var im=new Image();im.onload=function(){var M=640,w=im.width,h=im.height,k=Math.min(1,M/Math.max(w,h)),c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);cb(c.toDataURL("image/jpeg",0.82))};im.onerror=function(){toast("Bu görsel açılamadı")};im.src=r.result};r.readAsDataURL(file)}
+document.addEventListener("click",function(e){var t=e.target.closest("button");if(!t)return;
+  if(t.id==="imgpick"){$("fimg").value="";$("fimg").click();return}
+  if(t.id==="imgdel"){var g=gAll();delete g[P().name];gPut(g);render();toast("Görsel kaldırıldı");return}
+  if(t.id==="imgbig"){var p=P();$("panel").innerHTML='<h2>'+esc(p.name)+'</h2><img class="bigimg" src="'+esc(imgOf(p.name))+'" alt="'+esc(p.name)+' ambalajı"><div class="row"><button class="btn alt" id="cx">Kapat</button></div>';$("sheet").className="sheet show";return}
+});
+document.addEventListener("change",function(e){if(e.target.id!=="fimg")return;var f=e.target.files&&e.target.files[0];if(!f)return;var name=P().name;
+  shrink(f,function(u){var g=gAll();g[name]=u;if(gPut(g)){render();toast("Görsel eklendi")}})});
 /* ---------- Yoldaki camlar: hücre bazında geldi / kısmen geldi ---------- */
 function syncHist(p){var left=Object.keys(p.transit||{}).some(function(k){return p.transit[k]>0});state.hist.forEach(function(h){if(h.prod===p.name&&(h.st==="yolda"||h.st==="kısmen geldi"))h.st=left?"kısmen geldi":"geldi"})}
 function arriveCell(p,k,q){var y=(p.transit||{})[k]||0;q=Math.max(0,Math.min(q,y));if(!q)return 0;p.stock[k]=(p.stock[k]||0)+q;if(y-q>0)p.transit[k]=y-q;else delete p.transit[k];return q}
@@ -210,7 +228,7 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(id==="addp"){var nm=$("np").value.trim();if(nm){if(state.prods.some(function(p){return p.name.toLowerCase()===nm.toLowerCase()})){toast("Bu adla bir çeşit zaten var");return}state.prods.push(mk(nm,false));state.cur=state.prods.length-1;save();render()}return}
   if(id==="delp"){ask("Çeşit silinsin mi?","“"+P().name+"” ve tüm stoğu silinecek.","Çeşidi sil",function(){state.prods.splice(state.cur,1);state.cur=0;save();render()});return}
   // ---- Veri ve yedek ----
-  if(id==="bkfile"){saveFile("CamStok-yedek-"+today()+".json",JSON.stringify(state,null,1),"Yedek kaydedildi",function(){lsSet(LKEY,String(Date.now()));render()});return}
+  if(id==="bkfile"){saveFile("CamStok-yedek-"+today()+".json",JSON.stringify(Object.assign({},state,{gorseller:gAll()}),null,1),"Yedek kaydedildi",function(){lsSet(LKEY,String(Date.now()));render()});return}
   if(id==="rsfile"){$("fjson").value="";$("fjson").click();return}
   if(id==="xout"){exportXlsx();return}
   if(id==="xin"){$("fxlsx").value="";$("fxlsx").click();return}
