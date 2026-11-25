@@ -91,7 +91,7 @@ function dataCard(){var d=daysSinceFile();var h='<div class="card"><b>Veri ve ye
 function cp(tx,msg){try{navigator.clipboard.writeText(tx).then(function(){toast(msg)},function(){fb2(tx,msg)})}catch(er){fb2(tx,msg)}}
 function fb2(tx,msg){var a=document.createElement("textarea");a.value=tx;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast(msg)}catch(e){toast("Kopyalanamadı")}document.body.removeChild(a)}
 function text(){var p=P(),t="SİPARİŞ EDİLECEK CAMLAR\n"+(shopName()?shopName()+"\n":"")+p.name+"\n\nSPH / CYL / ADET\n";
-  orders(p).forEach(function(x){t+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+"\n"});(p.tek||[]).forEach(function(x,i){if(!i)t+="\nTEK SEFERLİK\n";t+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+(x.n?" ("+x.n+")":"")+"\n"});return t}
+  supplierList(p).forEach(function(x){t+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+"\n"});return t}
 function viewSet(){var p=P();
   return '<div class="card"><b>'+esc(p.name)+' kuralları</b>'+
   '<label>Stok bunun altındaysa sipariş ver<input type="number" id="thr" min="0" value="'+p.thr+'"></label>'+
@@ -161,7 +161,7 @@ function pdfFor(name,items,extra){if(!window.jspdf){toast("PDF aracı yükleneme
     var cols=[M,M+(W-2*M)/3,M+2*(W-2*M)/3],cw=(W-2*M)/3;
     g.fillStyle="#14212b";g.fillRect(M,y,W-2*M,RH);g.fillStyle="#fff";g.font="600 26px "+font;g.textAlign="center";
     ["SPH","CYL","ADET"].forEach(function(t,i){g.fillText(t,cols[i]+cw/2,y+31)});y+=RH;
-    items.slice(pg*per,(pg+1)*per).forEach(function(x){g.fillStyle="#14212b";g.font="28px "+font;g.fillText(fmt(x.s),cols[0]+cw/2,y+32);g.fillText(x.c===0?"":fmt(x.c),cols[1]+cw/2,y+32);g.font="700 28px "+font;g.fillText(String(x.q)+(x.tek?"  (tek"+(x.n?": "+x.n:"")+")":""),cols[2]+cw/2,y+32);
+    items.slice(pg*per,(pg+1)*per).forEach(function(x){g.fillStyle="#14212b";g.font="28px "+font;g.fillText(fmt(x.s),cols[0]+cw/2,y+32);g.fillText(x.c===0?"":fmt(x.c),cols[1]+cw/2,y+32);g.font="700 28px "+font;g.fillText(String(x.q),cols[2]+cw/2,y+32);
       g.fillStyle="#d5dde2";g.fillRect(M,y+RH-2,W-2*M,2);y+=RH});
     g.textAlign="left";if(extra&&pg===pages-1){g.fillStyle="#14212b";g.font="700 26px "+font;g.fillText(extra,M,y+50)}
     if(pg)doc.addPage();doc.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297)}
@@ -287,20 +287,22 @@ function dailyAsk(){var n=dirtyN();if(!n||lsGet(DKEY)===today())return;lsSet(DKE
 (function(){if(document.getElementById("cs-tek-css"))return;var st=document.createElement("style");st.id="cs-tek-css";st.textContent=".tekb{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--acc);color:var(--acctx);font-size:11px;font-weight:700;vertical-align:middle}.tekn{display:block;font-size:12px;color:var(--mute);font-weight:400}.find input[type=text]{width:210px}#tkfind[hidden]{display:none!important}";document.head.appendChild(st)})();
 function q4t(v){return Math.round(v*4)/4}
 function tekCount(){var n=0;(state&&state.prods||[]).forEach(function(p){n+=(p.tek||[]).length});return n}
-function tekAdd(s,c,q,n){var p=P();s=parseFloat(String(s).replace(",","."));c=parseFloat(String(c===""||c===undefined?"0":c).replace(",","."));q=parseInt(q,10)||0;
+function mergeItems(arr){var m={},out=[];arr.forEach(function(x){var k=key(x.s,x.c);if(!m[k]){m[k]={s:x.s,c:x.c,q:0};out.push(m[k])}m[k].q+=x.q});return out.sort(function(a,b){return a.s-b.s||b.c-a.c})}
+function supplierList(p){return mergeItems(orders(p).concat(p.tek||[]))}
+function tekAdd(s,c,q,n,pi){var p=(pi!==undefined&&state.prods[pi])?state.prods[pi]:P();s=parseFloat(String(s).replace(",","."));c=parseFloat(String(c===""||c===undefined?"0":c).replace(",","."));q=parseInt(q,10)||0;
   if(isNaN(s)){toast("SPH değerini yazın");return false}if(isNaN(c))c=0;if(q<1){toast("Adet en az 1 olmalı");return false}
   s=q4t(s);c=-Math.abs(q4t(c));if(!p.tek)p.tek=[];p.tek.push({id:Date.now()+Math.floor(Math.random()*1000),s:s,c:c,q:q,n:String(n||"").trim().slice(0,60)});save();
-  toast(fmt(s)+" / "+fmt(c)+" × "+q+" tek seferlik siparişe eklendi");return true}
-function tekForm(pf,s,c){return '<div class="find" style="margin-top:10px"><input type="number" id="'+pf+'s" step="0.25" inputmode="decimal" placeholder="SPH" aria-label="SPH" value="'+(s===undefined||isNaN(s)?'':s)+'"><input type="number" id="'+pf+'c" step="0.25" inputmode="decimal" placeholder="CYL" aria-label="CYL" value="'+(c===undefined||isNaN(c)?'':c)+'"><input type="number" id="'+pf+'q" min="1" value="1" aria-label="Adet" placeholder="Adet"><input type="text" id="'+pf+'n" placeholder="Not (örn. müşteri adı)" aria-label="Not"></div>'}
-function tekRead(pf){return tekAdd($(pf+"s").value,$(pf+"c").value,$(pf+"q").value,$(pf+"n").value)}
-function viewTek(){var p=P(),tk=p.tek||[];
-  var h='<div class="card"><b>Tek seferlik sipariş · '+esc(p.name)+'</b><div class="hint">Stokta tutmadığınız bir camı yalnızca bir kez sipariş etmek için. Stoğa ve sipariş kurallarına karışmaz. Bir sonraki “Sipariş verdim”de siparişe girer, sonra bu listeden düşer. CYL’yi işaretsiz yazabilirsiniz.</div>'+tekForm("tk")+'<div class="row"><button class="btn" id="tkadd">Listeye ekle</button></div></div>';
-  if(!tk.length)h+='<div class="empty">Bekleyen tek seferlik sipariş yok.</div>';
-  else{h+='<div class="card" style="padding:0;overflow:hidden"><table class="list" style="width:100%"><thead><tr><th>SPH</th><th>CYL</th><th>ADET</th><th></th></tr></thead><tbody>';
-    tk.forEach(function(x){h+='<tr><td>'+fmt(x.s)+'</td><td>'+(x.c===0?"":fmt(x.c))+(x.n?'<span class="tekn">'+esc(x.n)+'</span>':'')+'</td><td class="q">'+x.q+'</td><td><button class="btn alt sm" data-tkdel="'+x.id+'">Sil</button></td></tr>'});
-    h+='</tbody></table></div><div class="row"><button class="btn" id="tkgo">Sipariş sekmesine git</button></div>'}
+  toast(p.name+" · "+fmt(s)+" / "+fmt(c)+" × "+q+" tek seferlik siparişe eklendi");return true}
+function tekForm(pf,s,c){return '<label style="border:0;padding:8px 0 0">Cam türü<select id="'+pf+'p" style="padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;max-width:60%">'+state.prods.map(function(x,i){return '<option value="'+i+'"'+(i===state.cur?' selected':'')+'>'+esc(x.name)+'</option>'}).join("")+'</select></label><div class="find" style="margin-top:10px"><input type="number" id="'+pf+'s" step="0.25" inputmode="decimal" placeholder="SPH" aria-label="SPH" value="'+(s===undefined||isNaN(s)?'':s)+'"><input type="number" id="'+pf+'c" step="0.25" inputmode="decimal" placeholder="CYL" aria-label="CYL" value="'+(c===undefined||isNaN(c)?'':c)+'"><input type="number" id="'+pf+'q" min="1" value="1" aria-label="Adet" placeholder="Adet"><input type="text" id="'+pf+'n" placeholder="Not (örn. müşteri adı)" aria-label="Not"></div>'}
+function tekRead(pf){return tekAdd($(pf+"s").value,$(pf+"c").value,$(pf+"q").value,$(pf+"n").value,+$(pf+"p").value)}
+function viewTek(){var all=[];state.prods.forEach(function(p,pi){(p.tek||[]).forEach(function(x){all.push({p:p,pi:pi,x:x})})});
+  var h='<div class="card"><b>Tek seferlik sipariş</b><div class="hint">Stokta tutmadığınız bir camı yalnızca bir kez sipariş etmek için. Stoğa ve sipariş kurallarına karışmaz. Seçtiğiniz türün bir sonraki “Sipariş verdim”inde, toptancıya giden listeye normal bir satır olarak girer, sonra buradan düşer. CYL’yi işaretsiz yazabilirsiniz. Listede olmayan bir tür için önce Ayarlar → Yeni cam çeşidi ile ekleyin.</div>'+tekForm("tk")+'<div class="row"><button class="btn" id="tkadd">Listeye ekle</button></div></div>';
+  if(!all.length)h+='<div class="empty">Bekleyen tek seferlik sipariş yok.</div>';
+  else{h+='<div class="card" style="padding:0;overflow:hidden"><table class="list" style="width:100%"><thead><tr><th>TÜR</th><th>SPH</th><th>CYL</th><th>ADET</th><th></th></tr></thead><tbody>';
+    all.forEach(function(r){var x=r.x;h+='<tr><td><b>'+esc(r.p.name)+'</b></td><td>'+fmt(x.s)+'</td><td>'+(x.c===0?"":fmt(x.c))+(x.n?'<span class="tekn">'+esc(x.n)+'</span>':'')+'</td><td class="q">'+x.q+'</td><td><button class="btn alt sm" data-tkdel="'+x.id+'" data-tkp="'+r.pi+'">Sil</button></td></tr>'});
+    h+='</tbody></table></div><div class="hint" style="margin-top:6px">Her tür, kendi sipariş listesine eklenir. Sipariş sekmesinde üstten türü seçerek görebilirsiniz.</div><div class="row"><button class="btn" id="tkgo">Sipariş sekmesine git</button></div>'}
   return h+'<div class="hint" style="margin-top:12px"><b>Kısa yollar:</b> Stok sekmesinde reçete aradığınızda cam stokta yoksa “Tek seferlik sipariş et” düğmesi çıkar. Tablodaki herhangi bir hücreye dokunup da ekleyebilirsiniz.</div>'}
-function tekPanel(s,c){$("panel").innerHTML='<h2>Tek seferlik sipariş</h2><div class="hint">'+esc(P().name)+' · stoğa eklenmez, bir sonraki siparişe girer.</div>'+tekForm("tp",s,c)+'<div class="row"><button class="btn" id="tpadd">Ekle</button><button class="btn alt" id="cx">Vazgeç</button></div>';$("sheet").className="sheet show";var q=$("tpq");if(q){q.focus();q.select()}}
+function tekPanel(s,c){$("panel").innerHTML='<h2>Tek seferlik sipariş</h2><div class="hint">Stoğa eklenmez; seçtiğiniz türün bir sonraki siparişine normal bir satır olarak girer.</div>'+tekForm("tp",s,c)+'<div class="row"><button class="btn" id="tpadd">Ekle</button><button class="btn alt" id="cx">Vazgeç</button></div>';$("sheet").className="sheet show";var q=$("tpq");if(q){q.focus();q.select()}}
 function tekNav(){var nv=document.querySelector("nav");if(!nv)return;var b=nv.querySelector('[data-t="tek"]');if(!b){b=document.createElement("button");b.dataset.t="tek";nv.insertBefore(b,nv.querySelector('[data-t="ayar"]'))}var n=tekCount();b.textContent="Tek sipariş"+(n?" ("+n+")":"");b.className=tab==="tek"?"on":""}
 var renderTekBase=render;render=function(){renderTekBase();tekNav()};
 var openCellTek=openCell;openCell=function(k){openCellTek(k);var rs=$("panel").querySelectorAll(".row");if(rs.length)rs[rs.length-1].insertAdjacentHTML("beforeend",'<button class="btn alt" id="tkcell">Tek seferlik sipariş</button>')};
@@ -310,7 +312,7 @@ document.addEventListener("click",function(e){var t=e.target.closest&&e.target.c
   if(id==="tkgo"){tab="siparis";render();return}
   if(id==="tkfind"){tekPanel(parseFloat($("fs").value),parseFloat($("fc").value));return}
   if(id==="tkcell"){var a=cur.split("|");tekPanel(parseFloat(a[0]),parseFloat(a[1]));return}
-  if(d.tkdel){if(d.arm!=="1"){d.arm="1";t.textContent="Silinsin mi?";return}var p=P();p.tek=(p.tek||[]).filter(function(x){return String(x.id)!==d.tkdel});save();render();toast("Silindi");return}
+  if(d.tkdel){if(d.arm!=="1"){d.arm="1";t.textContent="Silinsin mi?";return}var p=state.prods[+d.tkp]||P();p.tek=(p.tek||[]).filter(function(x){return String(x.id)!==d.tkdel});save();render();toast("Silindi");return}
 });
 document.addEventListener("input",function(e){if(e.target.id!=="fs"&&e.target.id!=="fc")return;var b=$("tkfind");if(!b)return;var s=parseFloat($("fs").value);if(isNaN(s)){b.hidden=true;return}
   var c=parseFloat($("fc").value)||0,n=P().stock[key(q4t(s),-Math.abs(q4t(c)))];b.hidden=typeof n==="number"&&n>0});
@@ -345,10 +347,10 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(id==="ok"){var x=$("val").value;setCell(x===""?null:Math.max(0,parseInt(x,10)||0));return}
   if(id==="del"){setCell(null);return}
   if(id==="copy"){cp(text(),"Liste kopyalandı");return}
-  if(id==="pdf"){var pp=P(),oo=orders(pp).concat((pp.tek||[]).map(function(x){return {s:x.s,c:x.c,q:x.q,tek:1,n:x.n}})),tq0=0;oo.forEach(function(x){tq0+=x.q});var c0=calc(tq0,pp.cost||0,pp.kdv||0);pdfFor(pp.name,oo,pp.cost?"Ara toplam: "+tl(c0.net)+"  •  KDV: "+tl(c0.tax)+"  •  Fatura tutarı: "+tl(c0.tot):"");return}
-  if(d.ph){var hp=state.hist.filter(function(x){return String(x.id)===d.ph})[0];if(hp){pdfFor(hp.prod,hp.items,hp.tot?"Fatura tutarı: "+tl(hp.tot):"")}return}
+  if(id==="pdf"){var pp=P(),oo=supplierList(pp),tq0=0;oo.forEach(function(x){tq0+=x.q});var c0=calc(tq0,pp.cost||0,pp.kdv||0);pdfFor(pp.name,oo,pp.cost?"Ara toplam: "+tl(c0.net)+"  •  KDV: "+tl(c0.tax)+"  •  Fatura tutarı: "+tl(c0.tot):"");return}
+  if(d.ph){var hp=state.hist.filter(function(x){return String(x.id)===d.ph})[0];if(hp){pdfFor(hp.prod,mergeItems(hp.items),hp.tot?"Fatura tutarı: "+tl(hp.tot):"")}return}
   if(d.dh){if(t.dataset.arm!=="1"){t.dataset.arm="1";t.textContent="Silinsin mi?";return}state.hist=state.hist.filter(function(x){return String(x.id)!==d.dh});save();render();return}
-  if(d.ch){var hh=state.hist.filter(function(x){return String(x.id)===d.ch})[0];if(hh){var NL3="\n",tx3="SİPARİŞ EDİLECEK CAMLAR"+NL3+hh.prod+NL3+NL3+"SPH / CYL / ADET"+NL3;hh.items.forEach(function(x){tx3+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+(x.tek?" (tek sefer"+(x.n?", "+x.n:"")+")":"")+NL3});cp(tx3,"Liste kopyalandı")}return}
+  if(d.ch){var hh=state.hist.filter(function(x){return String(x.id)===d.ch})[0];if(hh){var NL3="\n",tx3="SİPARİŞ EDİLECEK CAMLAR"+NL3+hh.prod+NL3+NL3+"SPH / CYL / ADET"+NL3;hh.items.forEach(function(x){tx3+=fmt(x.s)+" / "+(x.c===0?"-":fmt(x.c))+" / "+x.q+NL3});cp(tx3,"Liste kopyalandı")}return}
   if(id==="sale"){sale=!sale;if(sale)selMode=false;last=null;render();return}
   if(id==="undo"){if(last){var p4=P();p4.stock[last]=(p4.stock[last]||0)+1;var td=document.querySelector('td[data-k="'+last+'"]');if(td){td.innerHTML=p4.stock[last]+((p4.transit||{})[last]?'<i class="yl" title="yolda">+'+p4.transit[last]+'</i>':'');td.className=(p4.stock[last]<thrOf(p4,last)?"low":"ok")+(ruleOf(p4,last)?" ozel":"")+(p4.excl&&p4.excl[last]?" ex":"")+((p4.transit||{})[last]?" tr":"")}last=null;save();toast("Geri alındı")}else toast("Geri alınacak satış yok");return}
   if(id==="sent"){var q=P(),os=orders(q),tq=0,items=[];os.forEach(function(x){q.transit[x.k]=(q.transit[x.k]||0)+x.q;tq+=x.q;items.push({s:x.s,c:x.c,q:x.q})});(q.tek||[]).forEach(function(x){tq+=x.q;items.push({s:x.s,c:x.c,q:x.q,tek:1,n:x.n||""})});q.tek=[];if(items.length){var cc=calc(tq,q.cost||0,q.kdv||0);state.hist.unshift({id:Date.now(),d:Date.now(),prod:q.name,items:items,qty:tq,cost:q.cost||0,kdv:q.kdv||0,tot:q.cost?cc.tot:0,st:os.length?"yolda":"verildi"})}save();toast("Sipariş kaydedildi, yolda");render();return}
