@@ -1,6 +1,6 @@
 // CamStok'un internetsiz açılması için dosyaları iPad'de saklar.
 // Sayfa güncellenince SURUM değiştirilir; yeni sürüm bir sonraki açılışta gelir.
-const SURUM = "camstok-satis-v10";
+const SURUM = "camstok-satis-v11";
 const DOSYALAR = ["./", "index.html", "app.js", "manifest.webmanifest", "icon-192.png", "icon-512.png",
   "apple-touch-icon.png", "vendor/xlsx.full.min.js", "vendor/jspdf.umd.min.js", "vendor/LICENSE-xlsx.txt", "vendor/LICENSE-jspdf.txt"];
 
