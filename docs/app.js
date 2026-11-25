@@ -51,7 +51,7 @@ function orders(p){var out=[];Object.keys(p.stock).forEach(function(k){var n=p.s
   out.sort(function(a,b){return a.s-b.s||b.c-a.c});return out}
 function chips(){var h="";state.prods.forEach(function(p,i){h+='<button class="chip'+(i===state.cur?' on':'')+'" data-p="'+i+'">'+thumb(p.name)+esc(p.name)+'</button>'});$("chips").innerHTML=h}
 function render(){chips();var m=$("main"),w0=document.querySelector(".wrap"),sc=w0&&tab==="stok"?[w0.scrollTop,w0.scrollLeft]:null;
-  if(tab==="stok")m.innerHTML=reminder()+imgStrip()+viewStok();else if(tab==="siparis")m.innerHTML=reminder()+imgStrip()+viewOrder();else if(tab==="tek")m.innerHTML=reminder()+imgStrip()+viewTek();else if(tab==="gecmis")m.innerHTML=viewHist();else m.innerHTML=viewSet();var w1=document.querySelector(".wrap");if(sc&&w1){w1.scrollTop=sc[0];w1.scrollLeft=sc[1]}
+  if(tab==="stok")m.innerHTML=reminder()+imgStrip()+viewStok();else if(tab==="siparis")m.innerHTML=reminder()+imgStrip()+viewOrder();else if(tab==="analiz")m.innerHTML=imgStrip()+viewAnaliz();else if(tab==="tek")m.innerHTML=reminder()+imgStrip()+viewTek();else if(tab==="gecmis")m.innerHTML=viewHist();else m.innerHTML=viewSet();var w1=document.querySelector(".wrap");if(sc&&w1){w1.scrollTop=sc[0];w1.scrollLeft=sc[1]}
   document.querySelectorAll("nav button").forEach(function(b){b.className=b.dataset.t===tab?"on":""})}
 function viewStok(){var p=P(),h='<div class="bar"><div class="seg"><button data-sg="1" class="'+(sign===1?'on':'')+'">SPH +</button><button data-sg="-1" class="'+(sign===-1?'on':'')+'">SPH −</button></div><div class="seg" title="Transpoze: tabloyu CYL(−) ya da CYL(+) yazımıyla göster"><button data-cm="-" class="'+(cylMode()==="-"?'on':'')+'">CYL −</button><button data-cm="+" class="'+(cylMode()==="+"?'on':'')+'">CYL +</button></div><button class="btn sm'+(selMode?'':' alt')+'" id="selm">'+(selMode?'Bölge seçimi: açık':'Bölge seç')+'</button><button class="btn sm'+(sale?'':' alt')+'" id="sale">Satış modu: '+(sale?'açık':'kapalı')+'</button>'+(sale?'<button class="btn sm alt" id="undo">Geri al</button>':'')+'</div>'+(sale?'<div class="mode">Satış modu açık: dokunduğunuz hücrenin stoğu 1 azalır.</div>':'')+(selMode?'<div class="mode">Bölge seçimi açık: özel kural koymak istediğiniz camların üzerinde parmağınızı sürükleyin. Tabloyu kaydırmak için SPH ya da CYL başlıklarından tutun.</div>':'')+'<div class="find"><input type="number" id="fs" step="0.25" placeholder="SPH"><input type="number" id="fc" step="0.25" placeholder="'+(cylMode()==="+"?"CYL +":"CYL")+'"><span id="res" class="hint">Reçeteyi yazın, stoğa bakın.</span><button class="btn sm" id="tkfind" hidden>Tek seferlik sipariş et</button></div><div class="wrap'+(selMode?' selmode':'')+'"><table><thead><tr><th>SPH \\ CYL</th>';
   var PL=cylMode()==="+";for(var j=0;j<=20;j++)h+="<th>"+fmt((PL?1:-1)*j*.25)+"</th>";h+="</tr></thead><tbody>";
@@ -292,6 +292,79 @@ window.addEventListener("input",function(e){if(e.target.id!=="fs"&&e.target.id!=
   var cr=parseRx($("fs").value,$("fc").value,cylMode());if(!cr){r.textContent="Reçeteyi yazın, stoğa bakın.";if(b)b.hidden=true;return}
   var p=P(),k=key(cr.s,cr.c),n=p.stock[k],y=(p.transit||{})[k]||0,var_=typeof n==="number"&&n>0;
   r.textContent=ikiYazim(cr.s,cr.c)+" → "+(var_?n+" adet stokta":"stokta yok")+(y?" (yolda "+y+")":"");if(b)b.hidden=var_});
+
+/* ---------- Analiz: sipariş sıklığı, stoğa ekleme / azaltma tavsiyesi, satış hızı ----------
+   Satış kaydı: p.satis[anahtar][YYYY-MM-DD] = adet (yalnız Satış modu; Geri al düşer). 400 günden eskisi silinir. */
+var GUN=864e5, AKEY=KEY+"_analiz";
+function anAyar(){var d={donem:6,tekMin:3,durgun:6};try{var o=JSON.parse(lsGet(AKEY))||{};Object.keys(d).forEach(function(k){if(typeof o[k]==="number")d[k]=o[k]})}catch(e){}return d}
+function anKaydet(o){lsSet(AKEY,JSON.stringify(o))}
+function logSale(p,k,n){if(!state.takipBas)state.takipBas=Date.now();var t=today();if(!p.satis)p.satis={};var g=p.satis[k]||(p.satis[k]={});g[t]=(g[t]||0)+n;if(g[t]<=0)delete g[t];
+  var sinir=today(new Date(Date.now()-400*GUN));Object.keys(g).forEach(function(d){if(d<sinir)delete g[d]});if(!Object.keys(g).length)delete p.satis[k]}
+function satisSay(p,k,bas){var g=(p.satis||{})[k];if(!g)return 0;var b=today(new Date(bas)),n=0;Object.keys(g).forEach(function(d){if(d>=b)n+=g[d]});return n}
+function dk(k){var a=k.split("|"),d=asMode(parseFloat(a[0]),parseFloat(a[1]),cylMode());return fmt(d.s)+" / "+(d.c===0?"0.00":fmt(d.c))}
+function tarihKisa(ts){return ts?new Date(ts).toLocaleDateString("tr-TR",{day:"numeric",month:"short",year:"2-digit"}):"—"}
+function siparisIst(p,bas){var m={};(state.hist||[]).forEach(function(h){if(h.prod!==p.name||h.st==="iptal"||h.d<bas)return;var gor={};
+  (h.items||[]).forEach(function(x){var k=key(x.s,x.c),r=m[k]||(m[k]={k:k,kez:0,adet:0,tek:0,son:0});r.adet+=x.q;if(x.tek)r.tek++;if(!gor[k]){r.kez++;gor[k]=1}if(h.d>r.son)r.son=h.d})});return m}
+function veriBas(p){var b=state.takipBas||Date.now();(state.hist||[]).forEach(function(h){if(h.prod===p.name&&h.d<b)b=h.d});return b}
+function viewAnaliz(){var p=P(),A=anAyar(),now=Date.now(),bas=A.donem?now-A.donem*30*GUN:0,vb=veriBas(p),gun=Math.max(1,Math.round((now-Math.max(bas,vb))/GUN));
+  var ist=siparisIst(p,bas),liste=Object.keys(ist).map(function(k){return ist[k]}),satToplam=0,satTakipGun=state.takipBas?Math.max(1,Math.round((now-state.takipBas)/GUN)):0;
+  Object.keys(p.satis||{}).forEach(function(k){satToplam+=satisSay(p,k,bas)});
+  var seg=function(v,l){return '<button data-and="'+v+'" class="'+(A.donem===v?'on':'')+'">'+l+'</button>'};
+  var h='<div class="card"><b>Analiz · '+esc(p.name)+'</b><div class="row" style="margin-top:8px"><div class="seg">'+seg(3,"3 ay")+seg(6,"6 ay")+seg(12,"12 ay")+seg(0,"Tümü")+'</div></div>'+
+    '<div class="hint" style="margin-top:8px">Sipariş geçmişi: '+(state.hist||[]).filter(function(x){return x.prod===p.name}).length+' sipariş, ilk kayıt '+tarihKisa(vb)+'. Satış kaydı: '+(satTakipGun?satTakipGun+' gündür tutuluyor':'henüz başlamadı (Stok sekmesindeki Satış modu ile her satış kaydedilir)')+'. Bu dönemde incelenen süre: '+gun+' gün.</div></div>';
+  // 1) stoğa ekleme tavsiyesi
+  var ekle=liste.filter(function(r){return r.tek>=A.tekMin&&typeof p.stock[r.k]!=="number"}).sort(function(a,b){return b.tek-a.tek||b.adet-a.adet});
+  h+='<div class="card"><b>Stoğa eklemeyi düşünün</b><div class="hint">Stokta olmayıp bu dönemde en az '+A.tekMin+' kez tek seferlik sipariş edilen camlar.</div>';
+  if(!ekle.length)h+='<div class="hint" style="margin-top:8px">Şu an böyle bir cam yok.</div>';
+  else{h+='<table class="list" style="margin-top:8px"><thead><tr><th>SPH / CYL</th><th>TEK SİPARİŞ</th><th>ADET</th><th>SON</th><th>ÖNERİ</th><th></th></tr></thead><tbody>';
+    ekle.forEach(function(r){var ay=Math.max(1,gun/30),tg=Math.max(2,Math.ceil(r.adet/ay*1.5)),th=Math.max(1,Math.ceil(tg/2));
+      h+='<tr><td><b>'+dk(r.k)+'</b></td><td>'+r.tek+' kez</td><td>'+r.adet+'</td><td>'+tarihKisa(r.son)+'</td><td>stok '+th+' adedin altına düşünce '+tg+' adede tamamla</td><td><button class="btn sm" data-anadd="'+r.k+'" data-th="'+th+'" data-tg="'+tg+'">Stoğa ekle</button></td></tr>'});
+    h+='</tbody></table><div class="hint" style="margin-top:6px">“Stoğa ekle” camı 0 adetle stoğa alır; bir sonraki “Sipariş verdim”de önerilen hedefe kadar sipariş edilir. Öneriyi sonra Bölge seç ile değiştirebilirsiniz.</div>'}
+  h+='</div>';
+  // 2) azaltma tavsiyesi
+  var dBas=now-A.durgun*30*GUN,yeterli=(now-vb)>=A.durgun*30*GUN,ist2=siparisIst(p,dBas),satYeter=state.takipBas&&(now-state.takipBas)>=A.durgun*30*GUN;
+  h+='<div class="card"><b>Yenileme adedini düşürmeyi düşünün</b><div class="hint">Stokta olup son '+A.durgun+' ayda hiç sipariş edilmemiş'+(satYeter?' ve hiç satılmamış':'')+' camlar.</div>';
+  if(!yeterli)h+='<div class="hint" style="margin-top:8px">Bu öneri için en az '+A.durgun+' aylık kayıt gerekiyor. Şu an '+Math.round((now-vb)/GUN)+' günlük veri var; yaklaşık '+Math.max(1,Math.ceil((vb+A.durgun*30*GUN-now)/GUN))+' gün sonra öneriler görünmeye başlar.</div>';
+  else{var azal=Object.keys(p.stock).filter(function(k){if(typeof p.stock[k]!=="number"||(p.excl&&p.excl[k]))return false;var R=(p.rules||{})[k];var s=parseFloat(k);if(!R&&p.maxs>0&&Math.abs(s)>p.maxs+1e-9)return false;
+      if(ist2[k])return false;if(satYeter&&satisSay(p,k,dBas)>0)return false;var th=R?R.thr:p.thr,tg=R?R.tgt:p.tgt;return tg>2}).sort(function(a,b){return parseFloat(a)-parseFloat(b)});
+    if(!azal.length)h+='<div class="hint" style="margin-top:8px">Şu an böyle bir cam yok.</div>';
+    else{h+=(azal.length>10?'<details style="margin-top:8px"><summary class="hint"><b>'+azal.length+' cam</b> · listeyi göster</summary>':'')+'<table class="list" style="margin-top:8px"><thead><tr><th>SPH / CYL</th><th>STOK</th><th>ŞU ANKİ KURAL</th><th>ÖNERİ</th><th></th></tr></thead><tbody>';
+      azal.slice(0,40).forEach(function(k){var R=(p.rules||{})[k],th=R?R.thr:p.thr,tg=R?R.tgt:p.tgt,ntg=Math.max(1,Math.ceil(tg/2)),nth=Math.max(1,Math.min(th,ntg)-(ntg>1?1:0));
+        h+='<tr><td><b>'+dk(k)+'</b></td><td>'+p.stock[k]+'</td><td>'+th+' / '+tg+'</td><td>'+nth+' / '+ntg+'</td><td><button class="btn alt sm" data-anazal="'+k+'" data-th="'+nth+'" data-tg="'+ntg+'">Azalt</button> <button class="btn alt sm" data-anexc="'+k+'">Siparişe girmesin</button></td></tr>'});
+      h+='</tbody></table>'+(azal.length>10?'</details>':'')+(azal.length>40?'<div class="hint">İlk 40 cam gösteriliyor ('+azal.length+' cam).</div>':'')+(satYeter?'':'<div class="hint" style="margin-top:6px">Not: Satış kaydı henüz '+A.durgun+' ayı doldurmadığı için yalnızca sipariş geçmişine bakıldı. Stoğu sınırın üstünde kalan ama satılan camlar da bu listede çıkabilir; karar vermeden önce kontrol edin.</div>')}}
+  h+='</div>';
+  // 3) en sık sipariş edilenler
+  var sik=liste.slice().sort(function(a,b){return b.kez-a.kez||b.adet-a.adet}).slice(0,15);
+  h+='<div class="card"><b>En sık sipariş edilen camlar</b>';
+  if(!sik.length)h+='<div class="hint" style="margin-top:8px">Bu dönemde sipariş yok.</div>';
+  else{h+='<table class="list" style="margin-top:8px"><thead><tr><th>SPH / CYL</th><th>SİPARİŞ</th><th>ADET</th><th>AYLIK ORT.</th><th>SON</th><th>STOKTA</th></tr></thead><tbody>';
+    sik.forEach(function(r){h+='<tr><td><b>'+dk(r.k)+'</b>'+(r.tek?'<span class="tekb">tek '+r.tek+'</span>':'')+'</td><td>'+r.kez+' kez</td><td>'+r.adet+'</td><td>'+(r.adet/Math.max(1,gun/30)).toFixed(1)+'</td><td>'+tarihKisa(r.son)+'</td><td>'+(typeof p.stock[r.k]==="number"?p.stock[r.k]:'yok')+'</td></tr>'});
+    h+='</tbody></table>'}
+  h+='</div>';
+  // 4) satış hızı
+  h+='<div class="card"><b>Satış hızı</b>';
+  if(!satTakipGun)h+='<div class="hint" style="margin-top:8px">Satış hızı, Stok sekmesindeki <b>Satış modu</b> ile kaydedilen satışlardan ölçülür. Satış modunda her dokunuş tarihiyle kaydedilir; “Geri al” kaydı siler. İlk satışla birlikte burada görünmeye başlar.</div>';
+  else{var sg=Math.max(1,Math.min(gun,satTakipGun)),hiz=Object.keys(p.satis||{}).map(function(k){return {k:k,n:satisSay(p,k,bas)}}).filter(function(r){return r.n>0}).sort(function(a,b){return b.n-a.n});
+    var hzOk=sg>=7;h+='<div class="sum" style="margin-top:8px"><div><b>'+satToplam+'</b><span>satış ('+sg+' gün)</span></div>'+(hzOk?'<div><b>'+(satToplam/sg*7).toFixed(1)+'</b><span>haftalık ort.</span></div><div><b>'+(satToplam/sg*30).toFixed(1)+'</b><span>aylık ort.</span></div>':'')+'</div>';
+    if(hiz.length){h+='<table class="list"><thead><tr><th>SPH / CYL</th><th>SATIŞ</th><th>AYLIK HIZ</th><th>STOK</th><th>YAKLAŞIK BİTİŞ</th></tr></thead><tbody>';
+      hiz.slice(0,15).forEach(function(r){var gh=r.n/sg,st=typeof p.stock[r.k]==="number"?p.stock[r.k]:0;h+='<tr><td><b>'+dk(r.k)+'</b></td><td>'+r.n+'</td><td>'+(hzOk?(gh*30).toFixed(1):'—')+'</td><td>'+st+'</td><td>'+(st<=0?'tükendi':hzOk?Math.round(st/gh)+' gün':'—')+'</td></tr>'});
+      h+='</tbody></table>'}
+    if(!hzOk)h+='<div class="hint" style="margin-top:6px">Satış kaydı '+satTakipGun+' günlük. Satış hızı ve bitiş tahmini en az 7 günlük kayıttan sonra gösterilir.</div>';else if(satTakipGun<30)h+='<div class="hint" style="margin-top:6px">Satış kaydı '+satTakipGun+' günlük; hızlar en az bir ay sonra daha güvenilir olur.</div>'}
+  h+='</div>';
+  // ayarlar
+  h+='<div class="card"><b>Analiz ayarları</b><label>Stoğa ekleme önerisi için en az kaç tek seferlik sipariş<input type="number" id="antek" min="1" value="'+A.tekMin+'"></label><label>Hareketsiz sayılması için kaç ay sipariş edilmemiş olmalı<input type="number" id="andur" min="1" value="'+A.durgun+'"></label></div>';
+  return h}
+function anNav(){var nv=document.querySelector("nav");if(!nv)return;var b=nv.querySelector('[data-t="analiz"]');if(!b){b=document.createElement("button");b.dataset.t="analiz";b.textContent="Analiz";nv.insertBefore(b,nv.querySelector('[data-t="ayar"]'))}b.className=tab==="analiz"?"on":""}
+var renderAnBase=render;render=function(){renderAnBase();anNav()};
+var openCellAn=openCell;openCell=function(k){openCellAn(k);var p=P(),n=satisSay(p,k,Date.now()-90*GUN),ist=siparisIst(p,0)[k],hint=$("panel").querySelector(".hint");
+  if(hint)hint.insertAdjacentHTML("afterend",'<div class="hint">Son 90 günde '+n+' satış · '+(ist?ist.kez+' siparişte '+ist.adet+' adet, son: '+tarihKisa(ist.son):'hiç sipariş edilmedi')+'</div>')};
+document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("button");if(!t)return;var d=t.dataset,p;
+  if(d.and!==undefined){var A=anAyar();A.donem=+d.and;anKaydet(A);render();return}
+  if(d.anadd){p=P();var th=+d.th,tg=+d.tg;if(typeof p.stock[d.anadd]!=="number")p.stock[d.anadd]=0;if(!p.rules)p.rules={};if(th!==p.thr||tg!==p.tgt)p.rules[d.anadd]={thr:th,tgt:tg};else delete p.rules[d.anadd];
+    if(p.excl)delete p.excl[d.anadd];save();render();toast(dk(d.anadd)+" stoğa eklendi; bir sonraki siparişte "+tg+" adet sipariş edilecek");return}
+  if(d.anazal){p=P();if(!p.rules)p.rules={};p.rules[d.anazal]={thr:+d.th,tgt:+d.tg};save();render();toast(dk(d.anazal)+": artık stok "+d.th+" adedin altına düşünce "+d.tg+" adede tamamlanacak");return}
+  if(d.anexc){p=P();if(!p.excl)p.excl={};p.excl[d.anexc]=1;save();render();toast(dk(d.anexc)+" artık siparişe girmeyecek");return}});
+document.addEventListener("change",function(e){var id=e.target.id;if(id!=="antek"&&id!=="andur")return;var A=anAyar(),v=Math.max(1,parseInt(e.target.value,10)||1);if(id==="antek")A.tekMin=v;else A.durgun=v;anKaydet(A);render()});
 /* ---------- Yoldaki camlar: hücre bazında geldi / kısmen geldi ---------- */
 function syncHist(p){var left=Object.keys(p.transit||{}).some(function(k){return p.transit[k]>0});state.hist.forEach(function(h){if(h.prod===p.name&&(h.st==="yolda"||h.st==="kısmen geldi"))h.st=left?"kısmen geldi":"geldi"})}
 function arriveCell(p,k,q){var y=(p.transit||{})[k]||0;q=Math.max(0,Math.min(q,y));if(!q)return 0;p.stock[k]=(p.stock[k]||0)+q;if(y-q>0)p.transit[k]=y-q;else delete p.transit[k];return q}
@@ -313,7 +386,7 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(t.closest&&t.closest("nav")&&d.t){tab=d.t;render();return}
   if(d.p!==undefined){state.cur=+d.p;save();render();return}
   if(d.sg){sign=+d.sg;render();return}
-  if(t.tagName==="TD"&&d.k&&tab==="stok"){if(sale){var p3=P(),n3=p3.stock[d.k];if(typeof n3==="number"&&n3>0){p3.stock[d.k]=n3-1;last=d.k;t.innerHTML=(n3-1)+((p3.transit||{})[d.k]?'<i class="yl" title="yolda">+'+p3.transit[d.k]+'</i>':'');t.className=(n3-1<thrOf(p3,d.k)?"low":"ok")+(ruleOf(p3,d.k)?" ozel":"")+(p3.excl&&p3.excl[d.k]?" ex":"")+((p3.transit||{})[d.k]?" tr":"");save();toast(d.k.replace("|"," / ")+": "+(n3-1)+" kaldı")}else toast("Bu camda stok yok")}else openCell(d.k);return}
+  if(t.tagName==="TD"&&d.k&&tab==="stok"){if(sale){var p3=P(),n3=p3.stock[d.k];if(typeof n3==="number"&&n3>0){p3.stock[d.k]=n3-1;last=d.k;logSale(p3,d.k,1);t.innerHTML=(n3-1)+((p3.transit||{})[d.k]?'<i class="yl" title="yolda">+'+p3.transit[d.k]+'</i>':'');t.className=(n3-1<thrOf(p3,d.k)?"low":"ok")+(ruleOf(p3,d.k)?" ozel":"")+(p3.excl&&p3.excl[d.k]?" ex":"")+((p3.transit||{})[d.k]?" tr":"");save();toast(d.k.replace("|"," / ")+": "+(n3-1)+" kaldı")}else toast("Bu camda stok yok")}else openCell(d.k);return}
   var id=t.id;
   if(id==="askok"){var f=pending;sheetClose();if(f)f();return}
   if(id==="exc"){var pe=P();if(!pe.excl)pe.excl={};if(pe.excl[cur])delete pe.excl[cur];else pe.excl[cur]=1;save();$("sheet").className="sheet";render();return}
@@ -327,7 +400,7 @@ document.addEventListener("click",function(e){var t=e.target.closest("button,td,
   if(d.dh){if(t.dataset.arm!=="1"){t.dataset.arm="1";t.textContent="Silinsin mi?";return}state.hist=state.hist.filter(function(x){return String(x.id)!==d.dh});save();render();return}
   if(d.ch){var hh=state.hist.filter(function(x){return String(x.id)===d.ch})[0];if(hh){var NL3="\n",tx3="SİPARİŞ EDİLECEK CAMLAR"+NL3+hh.prod+NL3+NL3+"SPH / "+cylHdr()+" / ADET"+NL3;mergeItems(hh.items).forEach(function(x){tx3+=fS(x)+" / "+fC(x,"-")+" / "+x.q+NL3});cp(tx3,"Liste kopyalandı")}return}
   if(id==="sale"){sale=!sale;if(sale)selMode=false;last=null;render();return}
-  if(id==="undo"){if(last){var p4=P();p4.stock[last]=(p4.stock[last]||0)+1;var td=document.querySelector('td[data-k="'+last+'"]');if(td){td.innerHTML=p4.stock[last]+((p4.transit||{})[last]?'<i class="yl" title="yolda">+'+p4.transit[last]+'</i>':'');td.className=(p4.stock[last]<thrOf(p4,last)?"low":"ok")+(ruleOf(p4,last)?" ozel":"")+(p4.excl&&p4.excl[last]?" ex":"")+((p4.transit||{})[last]?" tr":"")}last=null;save();toast("Geri alındı")}else toast("Geri alınacak satış yok");return}
+  if(id==="undo"){if(last){var p4=P();p4.stock[last]=(p4.stock[last]||0)+1;logSale(p4,last,-1);var td=document.querySelector('td[data-k="'+last+'"]');if(td){td.innerHTML=p4.stock[last]+((p4.transit||{})[last]?'<i class="yl" title="yolda">+'+p4.transit[last]+'</i>':'');td.className=(p4.stock[last]<thrOf(p4,last)?"low":"ok")+(ruleOf(p4,last)?" ozel":"")+(p4.excl&&p4.excl[last]?" ex":"")+((p4.transit||{})[last]?" tr":"")}last=null;save();toast("Geri alındı")}else toast("Geri alınacak satış yok");return}
   if(id==="sent"){var q=P(),os=orders(q),tq=0,items=[];os.forEach(function(x){q.transit[x.k]=(q.transit[x.k]||0)+x.q;tq+=x.q;items.push({s:x.s,c:x.c,q:x.q})});(q.tek||[]).forEach(function(x){tq+=x.q;items.push({s:x.s,c:x.c,q:x.q,tek:1,n:x.n||""})});q.tek=[];if(items.length){var cc=calc(tq,q.cost||0,q.kdv||0);state.hist.unshift({id:Date.now(),d:Date.now(),prod:q.name,items:items,qty:tq,cost:q.cost||0,kdv:q.kdv||0,tot:q.cost?cc.tot:0,st:os.length?"yolda":"verildi"})}save();toast("Sipariş kaydedildi, yolda");render();return}
   if(id==="arrived"){var q2=P();Object.keys(q2.transit).forEach(function(k){q2.stock[k]=(q2.stock[k]||0)+q2.transit[k]});q2.transit={};state.hist.forEach(function(h){if(h.prod===q2.name&&(h.st==="yolda"||h.st==="kısmen geldi")){h.st="geldi"}});save();toast("Stoğa eklendi");render();return}
   if(id==="cleartr"){var q5=P();q5.transit={};state.hist.forEach(function(h){if(h.prod===q5.name&&(h.st==="yolda"||h.st==="kısmen geldi")){h.st="iptal"}});save();render();return}
