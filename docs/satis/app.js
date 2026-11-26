@@ -78,7 +78,7 @@ function calc(q,cost,kdv){var net=q*cost;return {net:net,tax:net*kdv/100,tot:net
 function invHtml(c,p){if(!p.cost)return '<div class="hint">Fiyat girerseniz fatura tutarı burada hesaplanır.</div>';return '<div class="hint">Ara toplam: '+tl(c.net)+'<br>KDV: '+tl(c.tax)+'</div><div class="sum" style="margin:8px 0 0"><div><b>'+tl(c.tot)+'</b><span>fatura tutarı</span></div></div>'}
 function costCard(p,tot){if(!tot)return"";return '<div class="card"><b>Tahmini fatura</b><label>Cam başına alış fiyatı (₺)<input type="number" id="cost" min="0" step="0.01" inputmode="decimal" value="'+(p.cost||"")+'" placeholder="isteğe bağlı"></label><label>KDV (%)<input type="number" id="kdv" min="0" step="1" inputmode="decimal" value="'+(p.kdv||"")+'" placeholder="0"></label><div id="inv" style="padding-top:8px">'+invHtml(calc(tot,p.cost||0,p.kdv||0),p)+'</div></div>'}
 function viewHist(){var H=state.hist||[];if(!H.length)return '<div class="empty">Henüz kayıtlı sipariş yok. Sipariş sekmesinde “Sipariş verdim” dediğinizde burada saklanır.</div>';var tq=0,tt=0;H.forEach(function(h){tq+=h.qty;tt+=h.tot||0});var s='<div class="card"><div class="sum"><div><b>'+H.length+'</b><span>sipariş</span></div><div><b>'+tq+'</b><span>adet</span></div>'+(tt?'<div><b>'+tl(tt)+'</b><span>toplam tutar</span></div>':'')+'</div></div>';H.forEach(function(h){var dt=new Date(h.d).toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"});s+='<details class="card"><summary><b>'+dt+'</b> '+esc(h.prod)+'<br><span class="hint">'+h.items.length+' çeşit, '+h.qty+' adet'+(h.tot?', '+tl(h.tot):'')+' ('+h.st+')</span></summary><table class="list" style="margin-top:10px"><thead><tr><th>SPH</th><th>'+cylHdr()+'</th><th>ADET</th></tr></thead><tbody>';h.items.forEach(function(x){s+='<tr><td>'+fS(x)+'</td><td>'+fC(x)+(x.n?'<span class="tekn">'+esc(x.n)+'</span>':'')+'</td><td class="q">'+x.q+(x.tek?'<span class="tekb">tek</span>':'')+'</td></tr>'});s+='</tbody></table>'+(h.cost?'<div class="hint" style="margin-top:8px">Cam başına '+tl(h.cost)+(h.kdv?', KDV %'+h.kdv:'')+'</div>':'')+'<div class="row"><button class="btn alt sm" data-ch="'+h.id+'">Listeyi kopyala</button><button class="btn alt sm" data-ph="'+h.id+'">PDF</button><button class="btn alt sm" data-dh="'+h.id+'">Sil</button></div></details>'});return s}
-function transitCard(p){var t=0,n=0;Object.keys(p.transit||{}).forEach(function(k){if(p.transit[k]>0){t+=p.transit[k];n++}});if(!n)return"";return '<div class="card"><b>Yolda: '+t+' adet ('+n+' çeşit)</b><div class="hint">Sipariş verilen camlar, cam gelene kadar listeden düşer. Tabloda yoldaki camların köşesinde +adet yazar.</div><div class="row"><button class="btn" id="arrived">Hepsi geldi</button><button class="btn alt" id="partial">Kısmen geldi</button><button class="btn alt" id="cleartr">Yolu sıfırla</button></div></div>'}
+function transitCard(p){var t=0,n=0;Object.keys(p.transit||{}).forEach(function(k){if(p.transit[k]>0){t+=p.transit[k];n++}});if(!n)return"";return '<div class="card"><b>Yolda: '+t+' adet ('+n+' çeşit)</b><div class="hint">Sipariş verilen camlar, cam gelene kadar listeden düşer. Tabloda yoldaki camların köşesinde +adet yazar.</div><div class="row"><button class="btn" id="arrived">Hepsi geldi</button><button class="btn alt" id="partial">Kısmen geldi</button><button class="btn alt" id="kontrol">Kontrol listesi (PDF)</button><button class="btn alt" id="cleartr">Yolu sıfırla</button></div></div>'}
 function backupCard(){return '<div class="card"><b>Kopyala / yapıştır (Excel, Numbers)</b><div class="hint">Stok tablosunu Excel’e ya da Numbers’a yapıştırabilir, oradan kopyalayıp geri yükleyebilirsiniz.</div><div class="row"><button class="btn alt" id="exp">Tabloyu kopyala</button></div><textarea id="imp" placeholder="Excel’den kopyaladığınız tabloyu buraya yapıştırın"></textarea><div class="row"><button class="btn" id="impgo">Tabloyu yükle</button></div></div>'}
 function dataCard(){var d=daysSinceFile();var h='<div class="card"><b>Veri ve yedek</b><div class="hint">Veriler bu cihazda saklanır ve her değişiklikte otomatik kaydedilir. Her gün ilk açılışta otomatik yedek alınır (son 30 gün). Cihaz kaybolursa ya da bozulursa diye <b>haftada bir “Yedeği Dosyalar’a kaydet”</b> deyin (iPad’de iCloud Drive’ı seçin; bilgisayarda dosya İndirilenler klasörüne iner, onu USB belleğe ya da OneDrive’a kopyalayın).'+(d!==null?' Son dosya yedeği: '+(d===0?'bugün':d+' gün önce')+'.':'')+'</div>'+
   '<div class="row"><button class="btn" id="bkfile">Yedeği Dosyalar’a kaydet</button><button class="btn alt" id="rsfile">Dosyadan geri yükle</button></div>'+
@@ -474,7 +474,7 @@ function adimHtml(){var p=P(),a=adimDurum(p),ad=["Liste hazır","Gönderildi","Y
   h+='</div><div class="sirada">';
   if(a===1)h+='<a class="btn" id="wa2" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(text())+'">WhatsApp’a gönder</a><button class="btn alt" data-st="pdf">PDF olarak kaydet</button><span class="hint">Gönderince sıradaki adım: Sipariş verdim</span>';
   else if(a===2)h+='<button class="btn" data-st="sent">Sipariş verdim</button><button class="btn alt" data-st="geri">Listeyi tekrar gönder</button><span class="hint">Liste '+tarihKisa(p.gonderildi)+' tarihinde gönderildi</span>';
-  else if(a===3)h+='<button class="btn" data-st="arrived">Hepsi geldi</button><button class="btn alt" data-st="partial">Kısmen geldi</button>';
+  else if(a===3)h+='<button class="btn" data-st="arrived">Hepsi geldi</button><button class="btn alt" data-st="partial">Kısmen geldi</button><button class="btn alt" data-st="kontrol">Kontrol listesi (PDF)</button>';
   else if(a===4)h+='<span class="hint">👍 Son sipariş geldi. Yeni sipariş gerekince liste burada hazırlanır.</span>';
   else h+='<span class="hint">👍 Stoklar yerinde. Sipariş edilecek cam yok.</span>';
   return h+'</div></div>'}
@@ -508,6 +508,38 @@ document.addEventListener("click",function(e){var t=e.target.closest&&e.target.c
   if(d.st){if(d.st==="geri"){var p=P();p.gonderildi=0;save();render();return}var b=$(d.st);if(b)b.click();else if(d.st==="pdf"){}return}
   if(id==="sent"){var q=P();delete q.gonderildi;return}
   if(d.renk){P().renk=d.renk;save();render();toast("Renk değiştirildi");return}},true);
+
+/* ---------- Yoldaki camlar: yazdırılabilir kontrol listesi (PDF) ---------- */
+function yoldaVeri(){var out=[];state.prods.forEach(function(p){var ks=Object.keys(p.transit||{}).filter(function(k){return p.transit[k]>0}).sort(function(a,b){var x=a.split("|"),y=b.split("|");return parseFloat(x[0])-parseFloat(y[0])||parseFloat(y[1])-parseFloat(x[1])});
+    var tek=[],tarih=[],sinir=Date.now()-21*GUN;(state.hist||[]).forEach(function(h){if(h.prod!==p.name)return;var acik=h.st==="yolda"||h.st==="kısmen geldi"||(h.st==="verildi"&&h.d>=sinir);if(!acik)return;tarih.push(h.d);(h.items||[]).forEach(function(x){if(x.tek)tek.push(x)})});
+    if(ks.length||tek.length)out.push({p:p,ks:ks,tek:tek,tarih:tarih})});return out}
+function kontrolPdf(){if(!window.jspdf){toast("PDF aracı yüklenemedi");return}var veri=yoldaVeri();if(!veri.length){toast("Yolda cam yok");return}
+  var J=window.jspdf,W=1240,H=1754,M=80,RH=44,doc=new J.jsPDF({unit:"mm",format:"a4"}),font='"Avenir Next","Segoe UI",system-ui,sans-serif',SMd=supMode(),sayfa=0,cv,g,y,topC=0,topA=0;
+  var cols=[M,M+70,M+300,M+620,M+800,M+990],cw=W-M-M;
+  function yeni(){if(cv){if(sayfa)doc.addPage();doc.addImage(cv.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297);sayfa++}cv=document.createElement("canvas");cv.width=W;cv.height=H;g=cv.getContext("2d");g.fillStyle="#fff";g.fillRect(0,0,W,H);y=M;g.textBaseline="alphabetic"}
+  function yaz(t,x,yy,f,c,al){g.font=f+" "+font;g.fillStyle=c||"#14212b";g.textAlign=al||"left";g.fillText(t,x,yy)}
+  function cizgi(yy,c){g.fillStyle=c||"#d5dde2";g.fillRect(M,yy,cw,2)}
+  function kutu(x,yy,w,h){g.strokeStyle="#14212b";g.lineWidth=2;g.strokeRect(x,yy,w,h)}
+  function yer(h){if(y+h>H-M-90){yeni();baslik(true)}}
+  function baslik(dev){yaz("YOLDAKİ CAMLAR · KONTROL LİSTESİ"+(dev?" (devam)":""),M,y+36,"700 38px");y+=58;
+    yaz((typeof shopName==="function"&&shopName()?shopName()+"  •  ":"")+"Yazdırma: "+new Date().toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"})+"  •  CYL yazımı: "+(SMd==="+"?"artı (+)":"eksi (−)")+", parantez içinde öbür yazım",M,y+22,"24px","#66767f");y+=50}
+  function satirBaslik(cl){g.fillStyle="#14212b";g.fillRect(M,y,cw,RH);["#","SPH","CYL",cl||"YOLDA","GELEN","✓"].forEach(function(t,i){yaz(t,i===0?cols[0]+18:cols[i]+(i>=3?60:10),y+30,"600 22px","#fff",i>=3?"center":"left")});y+=RH}
+  function cam(i,s,c,adet,not){var d=asMode(s,c,SMd),o=asMode(s,c,SMd==="+"?"-":"+");yaz(String(i),cols[0]+18,y+30,"24px","#66767f");yaz(fmt(d.s),cols[1]+10,y+30,"700 28px");
+    yaz(d.c===0?"0.00":fmt(d.c),cols[2]+10,y+30,"700 28px");if(c!==0)yaz("("+fmt(o.s)+" / "+fmt(o.c)+")",cols[2]+130,y+30,"20px","#66767f");
+    yaz(String(adet),cols[3]+60,y+31,"800 30px","#14212b","center");kutu(cols[4]+20,y+7,80,30);kutu(cols[5]+46,y+8,28,28);
+    if(not)yaz(not,cols[1]+10,y+RH+16,"18px","#66767f");cizgi(y+RH+(not?22:0)-2);y+=RH+(not?22:0)}
+  yeni();baslik(false);
+  veri.forEach(function(v){var p=v.p,ad=0;v.ks.forEach(function(k){ad+=p.transit[k]});yer(150);
+    var tr=v.tarih.length?" · Sipariş: "+Array.from(new Set(v.tarih.map(function(t){return new Date(t).toLocaleDateString("tr-TR",{day:"numeric",month:"short"})}))).join(", "):"";
+    g.fillStyle=renkOf(p,state.prods.indexOf(p));g.fillRect(M,y+8,10,34);yaz(p.name,M+24,y+36,"700 32px");yaz(v.ks.length+" çeşit, "+ad+" adet"+tr,M+24+g.measureText(p.name).width+30,y+36,"24px","#66767f");y+=56;
+    if(v.ks.length){satirBaslik();v.ks.forEach(function(k,i){yer(RH);var a=k.split("|");cam(i+1,parseFloat(a[0]),parseFloat(a[1]),p.transit[k])});topC+=v.ks.length;topA+=ad}
+    if(v.tek.length){yer(110);y+=14;yaz("Tek seferlik (müşteri için)",M,y+26,"700 24px","#0f8f7a");y+=38;satirBaslik("ADET");v.tek.forEach(function(x,i){yer(RH+24);cam(i+1,x.s,x.c,x.q,x.n?"Not: "+x.n:"")});topC+=v.tek.length;v.tek.forEach(function(x){topA+=x.q})}
+    y+=26});
+  yer(140);y+=10;cizgi(y,"#14212b");y+=40;yaz("Toplam: "+topC+" çeşit, "+topA+" adet",M,y,"700 28px");y+=64;
+  yaz("Kontrol eden: ______________________     Tarih: ____ / ____ / ________     İmza: ______________",M,y,"24px");
+  yeni();
+  saveFile("Yoldaki camlar kontrol "+today()+".pdf",new Blob([doc.output("arraybuffer")]),"Kontrol listesi hazır")}
+document.addEventListener("click",function(e){var t=e.target.closest&&e.target.closest("button");if(t&&t.id==="kontrol"){kontrolPdf();e.stopPropagation()}},true);
 /* ---------- Yoldaki camlar: hücre bazında geldi / kısmen geldi ---------- */
 function syncHist(p){var left=Object.keys(p.transit||{}).some(function(k){return p.transit[k]>0});state.hist.forEach(function(h){if(h.prod===p.name&&(h.st==="yolda"||h.st==="kısmen geldi"))h.st=left?"kısmen geldi":"geldi"})}
 function arriveCell(p,k,q){var y=(p.transit||{})[k]||0;q=Math.max(0,Math.min(q,y));if(!q)return 0;p.stock[k]=(p.stock[k]||0)+q;if(y-q>0)p.transit[k]=y-q;else delete p.transit[k];return q}
